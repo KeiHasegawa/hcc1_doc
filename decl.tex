@@ -1,0 +1,2257 @@
+\section{型式の計算}
+\ref{type001} 章で型をどのように表現するかを議論しました. そこで
+この節では C 言語の宣言から型をどのように計算するかについて考えてみます.
+
+具体的に, 宣言
+\begin{verbatim}
+int f(double (*)(void));
+\end{verbatim}
+について考えてみます.
+この構文解析木を図 \ref{decl001} に示しました.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.125\linewidth,height=1.575\linewidth]{decl001.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.125\linewidth,height=1.575\linewidth]{decl001.eps}
+\end{latexonly}
+\caption{{\tt{int f(double (*)(void));}} の構文解析木}
+\label{decl001}
+\end{center}
+\end{figure}
+図 \ref{decl001} において丸で囲まれた番号は上向き構文解析において
+規則が還元される
+順番を示しています. フロントエンドはこの宣言に対して記号表に {\tt{f}}
+に対応するエントリを付け加えることになりますが, このときの {\tt{f}} の
+型は図 \ref{decl002} で示すものになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.5\linewidth,height=0.6\linewidth]{decl002.png}
+\end{htmlonly} 
+\begin{latexonly}
+\includegraphics[width=0.5\linewidth,height=0.6\linewidth]{decl002.eps}
+\end{latexonly}
+\caption{{\tt{int f(double (*)(void));}} の型式}
+\label{decl002}
+\end{center}
+\end{figure}
+
+ここで, 文法記号 {\tt{pointer}} が還元されたときにフロントエンドが
+するべきことは型 $x$ へのポインタを作ることです. そして型 $x$ を
+後で, 引数を取らない {\tt{double}}  を返す函数に置き替えるわけです.
+このように後で置き替えなければならない理由は, 文法記号 {\tt{pointer}} が
+還元されたときに, すなわち図 \ref{decl001} の 4 で
+まだ {\tt{void}} や {\tt{parameter-type-list}} が還元されていないからです.
+これが還元されるのは図 \ref{decl001} の 5 になります.
+
+もう一つの宣言
+\begin{verbatim}
+int (*a[])();
+\end{verbatim}
+についても考えてみましょう. この構文解析木を図 \ref{decl003} に示しまし
+た. 図 \ref{decl003} において丸で囲まれた
+番号は上向き構文解析において
+規則が還元される
+順番を示しています. 
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.125\linewidth,height=1.575\linewidth]{decl003.png}
+\end{htmlonly} 
+\begin{latexonly}
+\includegraphics[width=1.125\linewidth,height=1.575\linewidth]{decl003.eps}
+\end{latexonly}
+\caption{{\tt{int (*a[])()}} の構文解析木}
+\label{decl003}
+\end{center}
+\end{figure}
+フロントエンドはこの宣言に対して記号表に {\tt{a}}
+に対応するエントリを付け加えることになりますが, このときの {\tt{a}} の
+型は図 \ref{decl004} で示すものになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.5\linewidth,height=0.6\linewidth]{decl004.png}
+\end{htmlonly} 
+\begin{latexonly}
+\includegraphics[width=0.5\linewidth,height=0.6\linewidth]{decl004.eps}
+\end{latexonly}
+\caption{{\tt{int (*a[])();}} の型式}
+\label{decl004}
+\end{center}
+\end{figure}
+
+図 \ref{decl003} の番号 5 において規則
+\begin{verbatim}
+declarator : pointer direct-declarator
+\end{verbatim}
+が還元されるとき, {\tt{declarator}} の型は次のように
+して計算します.
+文法記号 {\tt{pointer}} の型は「型 $x$ へのポインタ」
+で, 文法記号 {\tt{direct-declarator}} の型は「型 $y$ の配列」
+です. 型 $y$ を「型 $x$ へのポインタ」で置き替えることに
+より, 文法記号 {\tt{declarator}}の型は
+「型 $x$ へのポインタの配列」となります.
+
+さらに図 \ref{decl003} の番号 6 において規則
+\begin{verbatim}
+direct-declarator : direct-declarator ()
+\end{verbatim}
+が還元されるとき, 規則左辺の {\tt{direct-declarator}}
+の型は次のようにして計算します.
+右辺の文法記号 {\tt{direct-declarator}} の型は
+「型 $x$ へのポインタの配列」です. 型 $x$ を
+「型 $z$ を返す函数」に置き替えることにより,
+規則左辺の {\tt{direct-declarator}}
+の型は「型 $z$ を返す函数へのポインタの配列」となります.
+
+ここで注意したいのは規則
+\begin{verbatim}
+direct-declarator : direct-declarator [ ]
+\end{verbatim}
+が還元されたとき, 左辺の型が必ずしも配列になるわけではなく, 同様に規則
+\begin{verbatim}
+direct-declarator : direct-declarator ( )
+\end{verbatim}
+が還元されたとき, 左辺の型が必ずしも函数になるわけではないということです.
+宣言
+\begin{verbatim}
+int f()[];
+int a[]();
+\end{verbatim}
+はいずれも意味的にエラーですが, これらに対して
+フロントエンドがどのように型式を計算するかを以下に示しました.
+
+\begin{tabular}{cccccl}
+           & {\tt{f}} &           &           &    &
+                 {\tt{f}} は型 $x$                       \\
+           & {\tt{f}} & {\tt{()}} &           &    &
+                 {\tt{f}} は型 $x$ を返す函数 \\
+           & {\tt{f}} & {\tt{()}} & {\tt{[]}} &    &
+                 {\tt{f}} は型 $x$ の配列を返す函数 \\
+{\tt{int}} & {\tt{f}} & {\tt{()}} & {\tt{[]}} &    &
+                 {\tt{f}} は {\tt{int}} の配列を返す函数 \\
+           &          &           &           &    &
+                                                         \\
+           & {\tt{a}} &           &           &    &
+                 {\tt{a}} は型 $x$                       \\
+           & {\tt{a}} & {\tt{[]}} &           &    &
+                 {\tt{a}} は型 $x$ の配列 \\
+           & {\tt{a}} & {\tt{[]}} & {\tt{()}} &    &
+                 {\tt{a}} は型 $x$ を返す函数の配列 \\
+{\tt{int}} & {\tt{a}} & {\tt{[]}} & {\tt{()}} &    &
+                 {\tt{a}} は {\tt{int}} を返す函数の配列 \\
+\end{tabular}
+
+\begin{QandA}
+宣言から型式を計算するときに, 型 $x$ を別の型 $y$ で置き替える
+ことをしていますが, 以下の例では別の意味で型を置き替える
+ことが必要ですか.
+
+\begin{verbatim}
+typedef int A[10];
+const A a;  /* a : const(array(int,10)) ではなく */
+            /* a : array(const(int),10) である */
+
+typedef int* pi;
+const pi cpi;  /* cpi : const(pointer(int)) であり */
+               /* cpi : pointer(const(int)) ではない */
+\end{verbatim}
+
+回答 : そうです. 別の意味で型を置き替える
+ことが必要になります. この理由は
+型修飾子 {\tt{const}}, {\tt{volatile}}, {\tt{restrict}}
+が配列型, 函数型を直接修飾できないからです.
+\end{QandA}
+
+\section{初期化指定子}
+\label{decl005}
+初期化指定子は宣言の一部です.
+変数の初期値を指定していることは勿論ですが, 不完全型配列の変数に
+適用した場合には, その型を完全型配列にしています. 例えば
+\begin{verbatim}
+int a;
+...
+{
+  int a[] = { sizeof a };  /* a の初期値は sizoef(int) ではなく,
+                              エラーとなります */
+
+  int b[] = { 0, 1, 2 };  /* int b[3] になります */
+}
+\end{verbatim}
+\ref{lex_yacc004} でも述べましたが, 宣言の最小単位を
+フロントエンドが認識した時点で記号表にエントリを追加する必要が
+あります.
+
+この節では初期化指定子の処理のしかたついて考えます.
+初期化指定子を処理する過程で更新していく情報を以下示します.
+\begin{itemize}
+\item 初期化対象となる型 $T$
+\item 初期値の集合 $V$. オフセットと値の対からなる要素を持つとします.
+\item オフセットとその最大値 $({\delta},{\delta}_{\tt{max}})$
+\item {\tt{initializer-list}} を処理しているのならば, 型 $T$ に対して
+      何番目を処理しているかを表わす数 $n$ とその最大値 $n_{\tt{max}}$.
+\item {\tt{initializer-list}} を処理しているのならば, $T$ とは
+      無関係に出現順序を表わす数 $m$ と {\tt{initializer-list}} の
+      長さ $M$.
+\end{itemize}
+これらを以下
+\[
+I \equiv (T,V,({\delta},{\delta}_{\tt{max}}),(n,n_{\tt{max}}),(m,M)) 
+\]
+のように対で示すことにします. また, $I.\delta_{\max}$ のように特定の
+情報を指すことにします.
+
+\begin{quotation}
+{\bf 初期化指定子のアルゴリズム}
+\begin{description}
+初期化指定子の始まりの字句 {\tt{=}} で
+\[
+I \equiv (T,V,(0,0),(-1,-1),(-1,-1))
+\]
+に対して以下の {\bf initializer に対する手続き} を適用します.
+ここで $T$ は初期化指定子が適用されている変数の型,
+$V$ は空の初期値の集合であるとします. また $-1$ は
+{\tt{initializer-list}} を処理していないことを表わしていると
+します.
+
+\item[initializer に対する手続き]
+
+\
+
+{\tt{initializer}} が {\tt{assignmet-expression}} ならば
+入力 $I$ に対して, 以下の
+{\bf assignmet-expression に対する手続き} を,
+そうでなければ入力 $I$ に対して,  {\bf initializer-list に対する手続き} を
+適用します.
+
+\item[assignment-expression に対する手続き]
+
+\
+
+\begin{enumerate}
+\item {\tt assignment-expression} の値 $y$ を求めます.
+\item \label{initializer010}
+      文字配列の初期化ならばその処理を行ないこの手続きを終了します.
+\item \label{initializer004}
+      $I.n \ge 0$ ならば
+      初期化対象の型 $I.T$ に対する $I.n$ 番目のオフセットと
+      型を求め, それらを ${\delta}'$ と $T'$ とします.
+      $T'$ がスカラ型ではなく, $y$ の型がスカラ型であれば,
+      入力 $I$ に対して,
+      以下の {\bf assignment-expression の特殊な場合の手続き}
+      を適用して, この手続きを終了します. 
+\item そうでなければ, すなわち $I.n < 0$ ならば
+      $I.\delta$ を ${\delta}'$ に, $I.T$ を $T'$ にします.
+\item $T'$ に $y$ が代入できるかどうかを判定し, できなければエラーとします.
+\item 代入できるならば, 必要ならば型変換をし, この結果を $y'$ とします.
+\item $I.V$ に $({\delta}', y')$ を追加します.
+\item $I.\delta = {\delta}' + {\tt sizeof}(T')$,
+      ${I.\delta}_{\tt{max}} = \max({I.\delta}_{\tt{max}}, I.{\delta})$
+      とします.
+\item $I.n \ge 0$ ならば, $I.n$ に $1$ を加算し,
+       $I.n_{\tt{max}} = \max(I.n_{\tt{max}}, I.n)$ とします.
+\end{enumerate}
+
+\item[assignment-expression における特殊な場合の手続き]
+
+\
+
+\begin{enumerate}
+      \item
+      初期化対象の型 $I.T$ に対する $I.n$ 番目のオフセットと
+      型を求め, それらを ${\delta}'$ と $T'$ とします.
+
+      \item
+      空の初期値の集合 $V'$ に対して
+\begin{eqnarray*}
+I' & \equiv & (T',V',(\hat{\delta},\hat{\delta}),(n',n'),(I.m,I.M)) \\
+\hat{\delta} & \equiv & I.\delta \, \verb|%|\,{\tt{sizeof}}(T') \\
+n' & \equiv &\left\{ \begin{array}{l}
+T' が型 \,\hat{T}\, の配列ならば\,\hat{\delta}\,/\,{\tt{sizeof}}(\hat{T})  \\
+T' が構造体, 共用体ならば, オフセット \hat{\delta} のメンバの順番  \\
+\end{array} \right.
+\end{eqnarray*}
+      とするとき $I'$ に対して
+      {\bf assignment-expresion に対する手続き} を再度適用します. 
+      \item \label{initializer008}
+      $I'$ に対して以下の {\bf 0 による初期化の手続き} を適用します.
+      \item  \label{initializer011}
+      $V'$ を $I.V$ に $\delta'$ を加算した形でコピーします. 
+      \item  \label{initializer012}
+      $T'$ が配列の場合, その次元が $n'$ に等しいか, 
+      $T'$ が構造体か共用体の場合, メンバ数が $n'$ に等しいならば
+      $I.n$ に $1$ を加算し,
+      $I.n_{\tt{max}} = \max(I.n_{\tt{max}}, I.n)$, $I'.\delta = 0$ とします.
+      \item $I.\delta = I.\delta + {\tt{sizeof}(T')}* I.n + I'.\delta$ とし,
+      $I.\delta_{\max} = \max(I.\delta_{\max}, I.\delta)$ とします. 
+\end{enumerate}
+
+\item[0 による初期化の手続き]
+
+\
+
+\begin{enumerate}
+\item $I.m < 0$ もしくは $I.m \ne I.M$ ならば, すなわち,
+      {\tt{initializer-list}} における
+      最後の要素でなければ, この手続きを終了します.
+
+\item $I.\delta_{\tt{max}} = {\tt sizeof}(I.T)$ ならば, すなわち,
+      すべてが初期化されていたのならば,  この手続きを終了します.
+
+\item 初期化対象の型 $I.T$ が不完全型配列ならば, この手続きを終了します.
+
+\item \label{initializer014} 
+      初期化の型に対して $I.n_{\max}$ 番目の該当するオフセットと型が
+      なければこの手続きを終了します. 
+
+\item $I.\delta$ を \ref{initializer014} のオフセットに更新し,
+      $I.\delta_{\max} = {\max}({I.\delta}_{\max},I.{\delta})$ とします.
+
+\item \ref{initializer014} の型 $T'$ がスカラ型であれば,
+       $I.V$ に $(I.\delta,z)$ を追加します. ここで $z$ は $0$ を $T'$ に
+       キャストしたものとします. 
+       $I.\delta$ に ${\tt{sizeof}}(T')$ を加算し,
+       $I.\delta_{\max} = {\max}(I.{\delta}_{\max},I.{\delta})$ とします.
+
+\item そうではなく \ref{initializer014} の型 $T'$ がスカラ型でなければ,
+\[
+ I' \equiv (T',V',(0,0),(0,0),(0,0))
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+$V'$ を $I.\delta$ を加算した形で $V$ にコピーします.
+$I.\delta$ に $I'.{\delta_{\max}}$ を加
+算し, $I.\delta_{\max} = {\max}(I.\delta_{\max},I.\delta)$
+とします.
+
+\item $I.n_{\max}$ に $1$ を加算し, $I.n = I.n_{\max}$ とし,
+ \ref{initializer014} から繰り返します.
+\end{enumerate}
+
+
+\item[initializer-list に対する手続き]
+
+\
+
+\begin{enumerate}
+\item \label{initializer005}
+      $I.n \ge 0$ ならば
+      初期化対象の型 $I.T$ に対する $I.n$ 番目のオフセットと
+      型を求め, それらを ${\delta}'$ と $T'$ とします.
+      $I.n < 0$ ならば $I.{\delta}$ を ${\delta}'$ に, $I.T$ を $T'$ にします.
+\item 空の初期値の集合 $V'$ と {\tt{initializer-list}} の長さ $M$ に対して
+\[
+ I' \equiv (T',V',(0,0),(0,0),(0,M))
+\]
+とするとき以下を適用します.
+
+\item \label{initializer009}
+
+{\tt{initializer-list}} のそれぞれの要素に対して
+\begin{enumerate}
+\item {\tt{designation}} があれば以下の
+      {\bf desination に対する手続き} を
+      適用して再び \ref{initializer009} から繰り返します.
+\item 入力 $I'$ と {\tt{initializer}} に対して
+      {\bf initializer に対する手続き} を
+      適用します.
+\end{enumerate}
+
+\item \label{initializer006}
+      $I'$ に対して {\bf 0 による初期化の手続き} を適用します.
+
+\item $V'$ を ${\delta}'$ を加算した形で $I.V$ にコピーします.
+
+\item $I.n \ge 0$ ならば
+$I.n$ に $1$ を加算し, $I.n_{\max} = \max(I.n_{\max},I.n)$ とします.
+
+\item $I.\delta = {\delta}' + I'.{\delta}_{\max}$,
+      $I.\delta_{\tt{max}} = {\max}(I.\delta_{\tt{max}},\delta)$ とします.
+
+\item $I'.m$ を $1$ 加算します.
+
+\end{enumerate}
+
+
+\item[designation に対する手続き]
+
+\
+
+\begin{enumerate}
+\item $T'$ を $I.T$, $V'$ を空の集合とします.
+\[
+ I' \equiv (T',V',(0,0),(-1,-1),(-1,-1))
+\]
+を入力として {\tt{designation}} のそれぞれの要素
+に対して以下の {\bf designator に対する手続き} を適用します.
+
+\item $V'$ から $I.{\delta}_{\max}$ よりも小さいオフセットを持つ要素を
+削除します.
+
+\item $V'$ のすべての要素を $I.V$ にコピーします.
+
+\item $I.n = I'.n + 1$, $I.n = {\max}(I.n_{\max},I.n)$ とします.
+
+\item $I.m$ を $1$ 加算します. 
+
+\item $T''$ を $T'$, $V''$ を空の集合とします.
+\[
+ I'' \equiv (T'', V'', (0,0),(-1,-1),(I.m,I.M))
+\]
+を入力として {\bf initializer に対する手続き} を適用します.
+
+\item $V''$ をオフセット $I'.{\delta}$ を加算した形で $I.V$  にコピーします.
+
+\item $I.{\delta} = I'.{\delta} + I''.{\delta}$, 
+      $I.{\delta}_{\max} = {\max}(I.{\delta}_{\max},I.\delta)$ とします.
+
+\item $I.T$ が不完全型配列の場合, その配列の要素の型 $E$ に対して
+      ${\tt{sizeof}(E)}\,\verb|%|\,I.\delta_{\max}$ が非零ならば
+      $T'''$ を型 $E$ を要素型とし, 次元を $s / I.\delta_{\max} + 1$ 
+      とする配列型とします. そうでなければ, $T'''$ を $I.T$ とします.
+      
+\item \label{initializer015}
+$V'''$ を空集合として
+\[
+ I''' \equiv (T''',V''',0,0,0,0,I.m,I.M)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+
+\item $V'''$ から $I.{\delta}_{\max}$ より小さいオフセットを持つ要素を
+削除します.
+
+\item $V'''$ のすべての要素を $I.V$ にコピーします.
+
+\item $I'''.\delta > 0$ ならば
+$I.\delta = I'''.\delta$,
+$I.\delta_{\max} = \max(I.\delta_{\max},I.\delta)$ とします.
+
+\end{enumerate}
+
+\item[designator に対する手続き]
+
+\
+
+{\tt{designator}} が添字指定であれば, 以下の
+{\bf 添字指定 designator に対する手続き} を, そうでなければ
+以下の {\bf メンバ指定 designator に対する手続き} を適用します.
+
+\item[添字指定 designator に対する手続き]
+
+\
+
+\begin{enumerate}
+\item 初期化対象の型が配列でないのならば, エラーとします.
+      そうでなければその配列型を $A$ とします.
+\item 添字の値を求め, 整定数でなければエラーとします.
+      そうでなければ得られた整定数を $n'$ とします.
+\item $T'$ を $A$ の要素を要素型とし, $n'$ を
+次元とする配列型, $V'$ を空の集合とするとき
+\[
+ I' \equiv (T',V',0,0,0,0,0,0) 
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+\item $V'$ をオフセット $I.{\delta}$ を加算した形で $I.V$  にコピーします.
+\item $I.T$ を $A$ の要素の型に更新します.
+\item $I.\delta = I.\delta + I'.{\delta_{\max}}$,  
+      $I.{\delta_{\max}} = {\max}(I.{\delta_{\max}},I.\delta)$ とします.
+\item $I.n = I'.n_{\max}$,
+      $I.n_{\max} = {\max}(I.n_{\max},I.n)$ とします.
+\end{enumerate}
+
+\item[メンバ指定 designator に対する手続き]
+
+\
+
+\begin{enumerate}
+\item 初期化対象の型の型修飾子を外した型が, 構造体, 共用体でない
+      のならば, エラーとします.
+      そうでなければその構造体, 共用体型を $R$ とします.
+\item $R$ において, 該当メンバがなければエラーとします. あれば
+      メンバのオフセットと型を ${\delta}'$, $T'$ とします.
+      またそのメンバが $n'$ 番目のメンバであるとします.
+\item $V'$ を空集合とするとき
+\[
+ I' \equiv (R,V',0,0,0,0,0,0)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+
+\item $V'$ から $\delta'$ 以上のオフセットを持つ要素を
+削除します.
+
+\item $V'$ を $I.\delta$ を加算した形で $I.V$ にコピーします.
+
+\item $I.T$ を $T'$ に更新します.
+\item $I.\delta = I.\delta + \delta'$,
+      $I.{\delta_{\max}} = {\max}(I.{\delta_{\max}},I.{\delta})$ とします.
+\item $I.n = n'$, $I.n_{\max} = \max(I.n_{\max},I.n)$ とします.
+\end{enumerate}
+
+\end{description}
+\end{quotation}
+
+初期化指定子が静的な変数に適用された場合, 初期値集合の要素,
+すなわちオフセットと値の対, における値は
+定数か変数のアドレスである必要があります.
+そうでなければ, それぞれの要素 $(\delta,y)$ に対して
+3 番地コード {\tt{x}}[$\delta$] := $y$ を出力します.
+
+以下, このアルゴリズムがどのように動作するかいくつかの例に対して
+示します. 例では簡単のため {\tt{sizeof(int)}} を 4,
+ {\tt{sizeof(double)}} を 8, また, 構造体における
+アラインメントもそれぞれ 4, 8 としています.
+
+\begin{Example}
+\label{initializer000}
+{{\tt int a \Rubyt{=}{\MARU{\tt 1}} 1;}}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで
+\[
+I \equiv ({\tt{int}},V,(0,0),(-1,-1),(-1,-1))
+\]
+に対して
+アルゴリズムを適用します. 初期化指定子 {\tt 1}
+は {\tt assignment-expression} なので $I$
+に対して {\bf assignment-expression に対する手続き} を
+適用します.
+{\tt assignment-expression} の値 $1$ は型 {\tt{int}} で,
+初期化対象の型 {\tt int} に代入
+できます. 結果は
+\begin{eqnarray*}
+I & = & ({\tt{int}},V,(4,4),(-1,-1),(-1,-1)) \\
+V & = & \{(0,1)\}
+\end{eqnarray*}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{initializer001}
+{{\tt int a \Rubyt{=}{\MARU{\tt 1}}\Rubyt{\{}{\MARU{\tt 2}}
+\Rubyt{2}{\MARU{\tt 3}}
+\Rubyt{\}}{\MARU{\tt 4}};}}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで
+\[
+I_0 \equiv ({\tt{int}},V_0,(0,0),(-1,-1),(-1,-1))
+\]
+に対してアルゴリズムを適用します.
+初期化指定子 {\tt \{ 2 \}}
+は {\tt initializer-list} なので $I$
+に対して 
+ {\bf initializer-list に対する手続き} を適用します.
+
+\noindent
+$\MARU{\tt 2}$ のポイントで
+\[
+I_1 \equiv ({\tt{int}},V_1,(0,0),(0,0),(0,1))
+\]
+に対して
+ {\bf initializer-list に対する手続き} \ref{initializer009} を適用します.
+
+\noindent
+$\MARU{\tt 3}$ のポイントで {\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt{int}} の {\tt{0}} 番目のオフセットと型を求め
+$(0,{\tt{int}})$ であると判別します.
+$\MARU{\tt 3}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{int}},V_1,(4,4),(1,1),(1,1)) \\
+V_1 & = & \{(0,2)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 4}$ のポイントで
+$V_1$ を現在のオフセット {\tt 0} を加算した形で $V_0$ にコピーします.
+$\MARU{\tt 4}$ の処理後の結果は
+\begin{eqnarray*}
+I_0 & = & ({\tt{int}},V_1,(4,4),(-1,-1),(-1,-1)) \\
+V_0 & = & \{(0,2)\}
+\end{eqnarray*}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{initializer002}
+{\tt int a[] \Rubyt{=}{\MARU{\tt 1}} 
+\Rubyt{\{}{\MARU{\tt 2}}
+\Rubyt{1}{\MARU{\tt 3}},
+\Rubyt{2}{\MARU{\tt 4}},
+\Rubyt{3}{\MARU{\tt 5}}
+\Rubyt{\}}{\MARU{\tt 6}}
+;}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで
+\[
+I_0 \equiv ({\tt int\,\,[]}, V_0, (0,0),(-1,-1),(-1,-1))
+\]
+に対してアルゴリズムを適用します.
+
+\noindent
+$\MARU{\tt 2}$ のポイントで
+\[
+I_1 \equiv ({\tt int\,\,[]}, V_1, (0,0),(0,0),(0,3))
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 3}$ , $\MARU{\tt 4}$ , $\MARU{\tt 5}$ のポイントで
+{\bf assignment-expression に対する手続き}\ref{initializer004} により
+型
+{\tt int []} に対する {\tt{0}}, {\tt{1}}, {\tt{2}} 番目のオフセット
+と型はそれぞれ {\tt (0,int)}, {\tt (4,int)}, 
+{\tt (8,int)} であると判別します. $V_1$ に
+{\tt (0,1), (4,2), (8,3)} をそれぞれ追加します.
+$\MARU{\tt 5}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{int\,\,[]}},V_1,(12,12),(3,3),(3,3)) \\
+V_1 & = & \{(0,1), (4,2), (8,3)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 6}$ のポイントで
+$V_1$ をオフセット {\tt 0} を加算した形で $V_0$ にコピーします.
+$\MARU{\tt 6}$ の処理後の結果は
+\begin{eqnarray*}
+I_0 & = & ({\tt{int\,\,[]}},V_0,(12,12),(-1,-1),(-1,-1)) \\
+V_0 & = & \{(0,1), (4,2), (8,3)\}
+\end{eqnarray*}
+となります.
+\end{Example}
+
+初期化指定子処理の後, {\tt{a}} の型 {\tt{int []}} は {\tt{int [3]}} に
+変更されることになります.
+
+\begin{Example}
+{\tt int a[]
+\Rubyt{=}{\MARU{\tt 1}}
+\Rubyt{1}{\MARU{\tt 2}}
+;
+}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで
+\[
+I \equiv ({\tt{int\,\,[]}},V,(0,0),(-1,-1),(-1,-1)) 
+\]
+に対してアルゴリズムを適用します.
+
+\noindent
+$\MARU{\tt 2}$ のポイントで {\bf assignment-expression に対する手続き}
+ \ref{initializer004} において
+$n = -1$ なので ${\delta}'$ は $0$ に, $T'$ は {\tt{int []}} になります.
+従って初期化の型は {\tt int []} で, 代入ができないことから
+エラーであると判定します.
+\end{Example}
+
+\begin{Example}
+
+\
+
+{\tt struct S \{ int a; int b; \};}
+
+{\tt struct S s \Rubyt{=}{\MARU{\tt 1}}
+\Rubyt{\{}{\MARU{\tt 2}}
+\Rubyt{1}{\MARU{\tt 3}},
+\Rubyt{2}{\MARU{\tt 4}}
+\Rubyt{\}}{\MARU{\tt 5}};
+}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで
+\[
+I_0 \equiv ({\tt{struct\,\,S}},V_0,(0,0),(-1,-1),(-1,-1)) 
+\]
+に対してアルゴリズムを適用します.
+
+\noindent
+$\MARU{\tt 2}$  のポイントで
+\[
+I_1 \equiv ({\tt{struct\,\,S}},V_1,(0,0),(0,0),(0,2))
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 3}$, $\MARU{\tt 4}$ のポイントで
+{\bf assignment-expression に対する手続き}
+ \ref{initializer004} において
+型 {\tt struct S} に対
+する {\tt{0}}, {\tt{1}} 番目のオフセット
+と型はそれぞれ {\tt (0,int)}, {\tt (4,int)} であると判別します.
+ $V_1$ に {\tt (0,1), (4,2)} をそれぞれ追加します.
+$\MARU{\tt 4}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S}},V_1,(8,8),(2,2),(2,2)) \\
+V_1 & = & \{(0,1), (4,2)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 5}$ のポイントで
+$V_1$ をオフセット {\tt 0} を加算した形で $V_0$ にコピーします.
+$\MARU{\tt 5}$ の処理後の結果は
+\begin{eqnarray*}
+I_0 & = & ({\tt{struct\,\,S}},V_0,(8,8),(-1,-1),(-1,-1)) \\
+V_0 & = & \{(0,1), (4,2)\}
+\end{eqnarray*}
+となります.
+\end{Example}
+
+\begin{Example}
+
+\
+
+{\tt struct S \{ int a; char b[5]; double c;\};}
+
+{\tt struct S s \Rubyt{=}{\MARU{\tt 1}} 
+\Rubyt{\{}{\MARU{\tt 2}}
+\Rubyt{1}{\MARU{\tt 3}},
+\Rubyt{"foo"}{\MARU{\tt 4}},
+\Rubyt{2.0}{\MARU{\tt 5}}
+\Rubyt{\}}{\MARU{\tt 6}};
+}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで
+\[
+I_0 \equiv ({\tt{struct\,\,S}},V_0,(0,0),(-1,-1),(-1,-1)) 
+\]
+に対してアルゴリズムを適用します.
+
+\noindent
+$\MARU{\tt 2}$ のポイントで
+\[
+I_1 \equiv ({\tt{struct\,\,S}},V_1,(0,0),(0,0),(0,3))
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 3}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt struct S} 
+に対する {\tt{0}} 番目のオフセット
+と型は {\tt (0,int)} であると判別します.
+ $V_1$ に {\tt (0,1)} を
+追加します. $\MARU{\tt 3}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S}},V_1,(4,4),(1,1),(1,3)) \\
+V_1 & = & \{(0,1)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 4}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt struct S} に対する {\tt{1}} 番目のオフセット
+と型は {\tt (4,char [5])} であると判別します.
+ $V_1$ に 
+{\tt (4,'f'),(5,'o'),(6,'o'),(7,'\verb|\|0'),(8,'\verb|\|0')}
+を追加します. $\MARU{\tt 4}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S}},V_1,(9,9),(2,2),(2,3)) \\
+V_1 & = & \{(0,1),
+ (4,{\tt{'f'}}),(5,{\tt{'o'}}),(6,{\tt{'o'}}),(7,'\verb|\|0'),(8,'\verb|\|0')\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 5}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt struct S} に対する {\tt{2}} 番目のオフセット
+と型は {\tt (16,double)} であると判別します.
+ $V_1$ に {\tt (16,2.0)} を追加します.
+ $\MARU{\tt 5}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S}},V_1,(24,24),(3,3),(3,3)) \\
+V_1 & = & \{(0,1),
+ (4,{\tt{'f'}}),(5,{\tt{'o'}}),(6,{\tt{'o'}}),(7,'\verb|\|0'),(8,'\verb|\|0'),
+(16,2.0)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 6}$ のポイントで
+ $V_1$ をオフセット {\tt 0} を加算した形で $V_0$ にコピーします.
+ $\MARU{\tt 6}$ の処理後の結果は
+\begin{eqnarray*}
+I_0 & = & ({\tt{struct\,\,S}},V_0,(24,24),(-1,-1),(-1,-1)) \\
+V_0 & = & \{(0,1),
+ (4,{\tt{'f'}}),(5,{\tt{'o'}}),(6,{\tt{'o'}}),(7,'\verb|\|0'),(8,'\verb|\|0'),
+(16,2.0)\}
+\end{eqnarray*}
+となります.
+
+\end{Example}
+
+\begin{Example}
+
+\
+
+{\tt struct S \{ int a; double b; char c[5];\};}
+
+{\tt struct S s \Rubyt{=}{\MARU{\tt 1}}}
+{\tt \Rubyt{\{}{\MARU{\tt 2}}}
+
+{\tt \Rubyt{\{}{\MARU{\tt 3}}}
+{\tt \Rubyt{2}{\MARU{\tt 4}}}
+{\tt \Rubyt{\}}{\MARU{\tt 5}},}
+{\tt \Rubyt{\{}{\MARU{\tt 6}}}
+{\tt \Rubyt{3.0}{\MARU{\tt 7}}}
+{\tt \Rubyt{\}}{\MARU{\tt 8}},}
+{\tt \Rubyt{\{}{\MARU{\tt 9}}}
+{\tt  \Rubyt{"foo"}{\MARU{\tt 10}}}
+{\tt \Rubyt{\}}{\MARU{\tt 11}}}
+
+{\tt \Rubyt{\}}{\MARU{\tt 12}};}
+
+\noindent
+$\MARU{{\tt 1}}$ のポイントで
+\[
+I_0 \equiv ({\tt{struct\,\,S}},V_0,(0,0),(-1,-1),(-1,-1))
+\]
+に対してアルゴリズムを適用します.
+
+\noindent
+$\MARU{{\tt 2}}$ のポイントで
+\[
+I_1 \equiv ({\tt{struct\,\,S}},V_1,(0,0),(0,0),(0,3))
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{{\tt 3}}$ のポイントで {\bf initializer-list  に対する手続き}
+\ref{initializer005} における $n$ は $0$ なので
+{\tt{struct S}} に対する $0$ 番目のオフセットと型を求め
+$(0,{\tt{int}})$ であると判別します.
+\[
+I_2 \equiv ({\tt{int}},V_2,(0,0),(0,0),(0,1))
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{{\tt 4}}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+ {\tt int} に対する {\tt{0}} 番目の
+オフセットと型を求め
+$(0,{\tt{int}})$ であると判別します.
+$V_2$ に {\tt (0,2)} を追加します.
+$\MARU{{\tt 4}}$ の処理後の結果は
+\begin{eqnarray*}
+I_2 & = & ({\tt{int}},V_2,(4,4),(1,1),(1,1)) \\
+V_2 & = & \{(0,2)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 5}$ のポイントで 
+ $V_2$ をオフセット {\tt 0} を加算した形で $V_1$ にコピーします.
+$\MARU{{\tt 5}}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S}},V_1,(4,4),(1,1),(1,3)) \\
+V_1 & = & \{(0,2)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{{\tt 6}}$ のポイントで {\bf initializer-list に対する手続き}
+\ref{initializer005} における $n$ は $1$ なので
+{\tt{struct S}} に対する $1$ 番目のオフセットと型を求め
+$(8,{\tt{double}})$ であると判別します.
+\[
+I_3 \equiv ({\tt{double}},V_3,(0,0),(0,0),(0,1))
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{{\tt 7}}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+ {\tt double} に対する {\tt{0}} 番目の
+オフセットと型は $(0,{\tt double})$ であると判別します.
+$V_3$ に {\tt (0,3.0)} を追加します.
+$\MARU{{\tt 7}}$ の処理後の結果は
+\begin{eqnarray*}
+I_3 & = & ({\tt{double}},V_3,(8,8),(1,1),(1,1)) \\
+V_3 & = & \{(0,3.0)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 8}$ のポイントで
+ $V_3$ をオフセット {\tt 8} を加算した形で $V_1$ にコピーします.
+$\MARU{{\tt 8}}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S}},V_1,(16,16),(2,2),(2,3)) \\
+V_1 & = & \{(0,2),(8,3.0)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{{\tt 9}}$ のポイントで {\bf initializer-list に対する手続き}
+\ref{initializer005} における $n$ は $2$ なので
+{\tt{struct S}} に対する $2$ 番目のオフセットと型を求め
+$(16,{\tt{char\,\,[5]}})$ であると判別します.
+\[
+I_4 \equiv ({\tt{char\,\,[5]}},V_4,(0,0),(0,0),(0,1)) 
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+
+\noindent
+$\MARU{{\tt 10}}$ のポイントで {\tt char [5]} に対して
+{\tt "foo"} が指定されているので
+{\bf assignment-expression に対する手続き}
+\ref{initializer010} において
+ $V_4$ に
+{\tt (0,'f'),(1,'o'),(2,'o'),(3,'\verb|\|0'),(4,'\verb|\|0')} を追加しま
+ す. $\MARU{{\tt 10}}$ の処理後の結果は
+\begin{eqnarray*}
+I_4 & = & ({\tt{char\,\,[5]}}, V_4, (5,5),(1,1),(1,1)) \\
+V_4 & = & \{(0,{\tt{'f'}}),(1,{\tt{'o'}}),(2,{\tt{'o'}}),
+(3,{\tt{'\verb|\|0'}}),(4,{\tt{'\verb|\|0'}})\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 11}$ のポイントで
+ $V_4$ をオフセット {\tt 16} を加算した形で $V_1$ にコピーします.
+ $\MARU{{\tt 11}}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S}},V_1,(21,21),(3,3),(3,3)) \\
+V_1 & = & \{(0,2),(8,3.0),
+(16,{\tt{'f'}}),(17,{\tt{'o'}}),(18,{\tt{'o'}}),
+(19,'\verb|\|0'),(20,'\verb|\|0')
+\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 12}$ のポイントで
+ $V_1$ をオフセット {\tt 0} を加算した形で $V_0$ にコピーします.
+ $\MARU{{\tt 12}}$ の処理後の結果は
+\begin{eqnarray*}
+I_0 & = & ({\tt{struct\,\,S}},V_0,(21,21),(-1,-1),(-1,-1)) \\
+V_0 & = & \{(0,2),(8,3.0),
+(16,{\tt{'f'}}),(17,{\tt{'o'}}),(18,{\tt{'o'}}),
+(19,'\verb|\|0'),(20,'\verb|\|0')
+\}
+\end{eqnarray*}
+となります.
+
+\end{Example}
+
+\begin{Example}
+
+\
+
+{\tt int a[4][3] \Rubyt{=}{\MARU{\tt 1}}}
+{\tt \Rubyt{\{}{\MARU{\tt 2}}}
+
+{\tt \Rubyt{\{}{\MARU{\tt 3}}
+\Rubyt{1}{\MARU{\tt 4}},
+\Rubyt{3}{\MARU{\tt 5}},
+\Rubyt{5}{\MARU{\tt 6}}
+\Rubyt{\}}{\MARU{\tt 7}},}
+
+{\tt \Rubyt{\{}{\MARU{\tt 8}}
+\Rubyt{2}{\MARU{\tt 9}},
+\Rubyt{4}{\MARU{\tt 10}},
+\Rubyt{6}{\MARU{\tt 11}}
+\Rubyt{\}}{\MARU{\tt 12}},}
+
+{\tt \Rubyt{\{}{\MARU{\tt 13}}
+\Rubyt{3}{\MARU{\tt 14}},
+\Rubyt{5}{\MARU{\tt 15}},
+\Rubyt{7}{\MARU{\tt 16}}
+\Rubyt{\}}{\MARU{\tt 17}}}
+
+{\tt \Rubyt{\}}{\MARU{\tt 18}};}
+
+
+
+
+\noindent
+$\MARU{\tt 1}$ のポイントで
+\[
+I_0 \equiv ({\tt{int\,\,[4][3]}},V_0,(0,0),(-1,-1),(-1,-1)) 
+\]
+に対してアルゴリズムを適用します.
+
+\noindent
+$\MARU{\tt 2}$ のポイントで
+\[
+I_1 \equiv ({\tt{int\,\,[4][3]}},V_1,(0,0),(0,0),(0,3)) 
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 3}$ のポイントで
+{\bf initializer-list に対する手続き}
+\ref{initializer005} における $n$ は $0$ なので
+型 {\tt int [4][3]} に対する {\tt{0}} 番目の
+オフセットと型は {\tt (0,int [3])} であると判別します.
+\[
+I_2 \equiv ({\tt{int\,\,[3]}},V_2,(0,0)(0,0),(0,3)) 
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 4}$, $\MARU{\tt 5}$, $\MARU{\tt 6}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt int [3]} に
+対する {\tt 0}, {\tt 1}, {\tt 2} 番目の
+オフセットと型はそれぞれ {\tt (0,int)}, {\tt (4,int)}, {\tt (8,int)} と
+判別します.
+$V_2$ にそれぞれ {\tt (0,1)}, {\tt (4,3)}, {\tt (8,5)} を追加します.
+$\MARU{\tt 6}$ の
+処理後の結果は
+\begin{eqnarray*}
+I_2 & = & ({\tt{int\,\,[3]}},V_2,(12,12),(3,3),(3,3)) \\
+V_2 & = & \{ (0,1),(4,3),(8,5) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 7}$ のポイントで
+ $V_2$ をオフセット {\tt 0} を加算した形で $V_1$ にコピーします.
+$\MARU{\tt 7}$ の
+処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{int\,\,[4][3]}},V_1,(12,12),(1,1),(1,3)) \\
+V_1 & = & \{ (0,1),(4,3),(8,5) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 8}$ のポイントで
+{\bf initializer-list に対する手続き}
+\ref{initializer005} における $n$ は $1$ なので
+型 {\tt int [4][3]} に対する {\tt{1}} 番目の
+オフセットと型は {\tt (12,int [3])} であると判別します.
+\[
+I_3 \equiv ({\tt{int\,\,[3]}},V_3,(0,0),(0,0),(0,3))
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 9}$, $\MARU{\tt 10}$, $\MARU{\tt 11}$ の
+ポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt int [3]} に
+対する {\tt 0}, {\tt 1}, {\tt 2} 番目の
+オフセットと型はそれぞれ {\tt (0,int)}, {\tt (4,int)}, {\tt (8,int)} で
+あると判別します.
+$V_3$ にそれぞれ {\tt (0,2)}, {\tt (4,4)}, {\tt (8,6)} を追加します.
+$\MARU{\tt 11}$ の処理後
+の結果は
+\begin{eqnarray*}
+I_3 & = & ({\tt{int\,\,[3]}},V_3,(12,12),(3,3),(3,3)) \\
+V_3 & = & \{ (0,2),(4,4),(8,6) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 12}$ のポイントで
+ $V_3$ をオフセット {\tt 12} を加算した形で $V_1$ にコピーします.
+$\MARU{\tt 12}$ の処理後
+の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{int\,\,[4][3]}},V_1,(24,24),(2,2),(2,3)) \\
+V_1 & = & \{ (0,1),(4,3),(8,5),(12,2),(16,4),(20,6) \}
+\end{eqnarray*}
+となります.
+
+
+\noindent
+$\MARU{\tt 13}$ のポイントで
+{\bf initializer-list に対する手続き}
+\ref{initializer005} における $n$ は $2$ なので
+型 {\tt int [4][3]} に対する {\tt{2}} 番目の
+オフセットと型は {\tt (24,int [3])} であると判別します.
+\[
+I_4 \equiv ({\tt{int\,\,[3]}},V_4,(0,0),(0,0),(0,3))
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 14}$, $\MARU{\tt 15}$, $\MARU{\tt 16}$ の
+ポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt int [3]} に
+対する {\tt 0}, {\tt 1}, {\tt 2} 番目の
+オフセットと型はそれぞれ {\tt (0,int)}, {\tt (4,int)}, {\tt (8,int)} で
+あると判別します.
+$V_4$ にそれぞれ {\tt (0,3)}, {\tt (4,5)}, {\tt (8,7)} を追加します.
+$\MARU{\tt 16}$ の処理後
+の結果は
+\begin{eqnarray*}
+I_4 & = & ({\tt{int\,\,[3]}},V_4,(12,12),(3,3),(3,3)) \\
+V_4 & = & \{ (0,3),(4,5),(8,7) \}
+\end{eqnarray*}
+となります.
+
+
+\noindent
+$\MARU{\tt 17}$ のポイントで
+ $V_4$ をオフセット {\tt 24} を加算した形で $V_1$ にコピーします.
+$\MARU{\tt 17}$ の処理後
+の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{int\,\,[4][3]}},V_1,(36,36),(3,3),(3,3)) \\
+V_1 & = & \{ (0,1),(4,3),(8,5),(12,2),(16,4),(20,6),(24,3),(28,5),(32,7) \}
+\end{eqnarray*}
+となります.
+
+ここで,  {\bf initializer-list に対する手続き}
+ \ref{initializer006} で適用された {\bf 0 による初期化の手続き}
+で条件が成立しています.
+すなわち, {\tt{initializer-list}} の最後の要素ですが, {\tt{int [4][3]}}
+の $3$ 番目の要素が初期化されていないので, これを $0$ で初期化します.
+この結果
+\begin{eqnarray*}
+I_1 & = & ({\tt{int\,\,[4][3]}},V_1,(48,48),(3,3),(3,3)) \\
+V_1 & = & \{
+ (0,1),(4,3),(8,5),(12,2),(16,4),(20,6),(24,3),(28,5),(32,7), \\
+    &   &  (36,0), (40,0), (44,0) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 18}$ のポイントで型  $V_1$ をオフセット {\tt 0} を加算した形
+で $V_0$ にコピーします. $\MARU{\tt 18}$ の処理後
+の結果は
+\begin{eqnarray*}
+I_0 & = & ({\tt{int\,\,[4][3]}},V_0,(48,48),(-1,-1),(-1,-1)) \\
+V_0 & = & \{
+ (0,1),(4,3),(8,5),(12,2),(16,4),(20,6),(24,3),(28,5),(32,7), \\
+    &   &  (36,0), (40,0), (44,0) \}
+\end{eqnarray*}
+となります.
+\end{Example}
+
+\begin{Example}
+
+\
+
+{\tt int a[4][3] \Rubyt{=}{\MARU{\tt 1}} \Rubyt{\{}{\MARU{\tt 2}}}
+
+{\tt \Rubyt{1}{\MARU{\tt 3}},}
+{\tt \Rubyt{3}{\MARU{\tt 4}},}
+{\tt \Rubyt{5}{\MARU{\tt 5}},}
+{\tt \Rubyt{2}{\MARU{\tt 6}},}
+{\tt \Rubyt{4}{\MARU{\tt 7}},}
+{\tt \Rubyt{6}{\MARU{\tt 8}},}
+{\tt \Rubyt{3}{\MARU{\tt 9}},}
+{\tt \Rubyt{5}{\MARU{\tt 10}},}
+{\tt \Rubyt{7}{\MARU{\tt 11}}}
+
+{\tt \Rubyt{\}}{\MARU{12}};}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで
+\[
+I_0 \equiv ({\tt{int\,\,[4][3]}}, V_0, (0,0),(-1,-1),(-1,-1))
+\]
+に対してアルゴリズムを適用します.
+
+\noindent
+$\MARU{\tt 2}$ のポイントで
+\[
+I_1 \equiv ({\tt{int\,\,[4][3]}}, V_1, (0,0),(0,0),(0,9))
+\]
+に対して  {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 3}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt int [4][3]} に対する {\tt 0} 番目の
+オフセットと型は {\tt (0,int [3])} であると判別します. 型 {\tt int [3]}
+はスカラ型ではなく, 初期化指定子 {\tt 1} の型 {\tt int} がスカラ型なので
+ {\bf assignment-expression における特殊な場合の手続き} を適用します.
+\[
+I_2 \equiv ({\tt{int\,\,[3]}},V_2,(0,0),(0,0),(1,9))
+\]
+に対して {\bf assignment-expression に対する手続き}
+を再度適用します.
+この結果,
+\begin{eqnarray*}
+I_2 & = & ({\tt{int\,\,[3]}},V_2,(4,4),(1,1),(1,9)) \\
+V_2 & = & \{(0,1)\}
+\end{eqnarray*}
+となります. そして,
+{\bf assignment-expression における特殊な場合の手続き} 
+\ref{initializer011} で,
+$V_2$ をオフセット $0$ を加算した形で $V_1$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_1 & \equiv & ({\tt{int\,\,[4][3]}}, V_1, (4,4),(0,0),(1,9)) \\
+V_1 & = & \{(0,1)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 4}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt int [4][3]} に対する {\tt 0} 番目の
+オフセットと型は {\tt (0,int [3])} であると判別します. 型 {\tt int [3]}
+はスカラ型ではなく, 初期化指定子 {\tt 2} の型 {\tt int} がスカラ型なので
+ {\bf assignment-expression における特殊な場合の手続き} を適用します.
+\[
+I_3 \equiv ({\tt{int\,\,[3]}},V_3,(4,4),(1,1),(2,9))
+\]
+に対して {\bf assignment-expression に対する手続き} を再度適用します.
+この結果,
+\begin{eqnarray*}
+I_3 & = & ({\tt{int\,\,[3]}},V_3,(8,8),(2,2),(2,9)) \\
+V_3 & = & \{(0,2)\}
+\end{eqnarray*}
+となります. そして,
+{\bf assignment-expression における特殊な場合の手続き} 
+\ref{initializer011} で,
+$V_3$ をオフセット $4$ を加算した形で $V_1$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_1 & \equiv & ({\tt{int\,\,[4][3]}}, V_1, (8,8),(0,0),(2,9)) \\
+V_1 & = & \{(0,1), (4,2)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 5}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt int [4][3]} に対する {\tt 0} 番目の
+オフセットと型は {\tt (0,int [3])} であると判別します. 型 {\tt int [3]}
+はスカラ型ではなく, 初期化指定子 {\tt 3} の型 {\tt int} がスカラ型なので
+ {\bf assignment-expression における特殊な場合の手続き} を適用します.
+\[
+I_4 \equiv ({\tt{int\,\,[3]}},V_3,(8,8),(2,2),(3,9))
+\]
+に対して {\bf assignment-expression に対する手続き} を再度適用します.
+この結果,
+\begin{eqnarray*}
+I_4 & = & ({\tt{int\,\,[3]}},V_4,(12,12),(3,3),(3,9)) \\
+V_4 & = & \{(0,3)\}
+\end{eqnarray*}
+となります.
+そして,
+{\bf assignment-expression における特殊な場合の手続き} 
+\ref{initializer011} で,
+$V_4$ をオフセット $8$ を加算した形で $V_1$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_1 & \equiv & ({\tt{int\,\,[4][3]}}, V_1, (12,12),(0,1),(3,9)) \\
+V_1 & = & \{(0,1), (4,2), (8,3)\}
+\end{eqnarray*}
+となります.
+
+さらに, {\bf assignment-expression における特殊な場合の手続き}
+\ref{initializer012} において
+ $n'$ が $3$ になったことから $I_1.n$ に $1$ が加算され
+\begin{eqnarray*}
+I_1 & \equiv & ({\tt{int\,\,[4][3]}}, V_1, (12,12),(1,1),(3,9)) \\
+V_1 & = & \{(0,1), (4,2), (8,3)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 6}$, $\MARU{\tt 7}$, $\MARU{\tt 8}$ の
+のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt int [4][3]} に対する {\tt 1} 番目の
+オフセットと型は {\tt (12,int [3])} であると判別します. 型 {\tt int [3]}
+はスカラ型ではなく, 初期化指定子 {\tt 2, 4, 6} の型 {\tt int} がスカラ型なので
+ {\bf assignment-expression における特殊な場合の手続き} を適用します.
+$\MARU{\tt 8}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{int\,\,[4][3]}},V_1,(24,24),(2,2),(6,9)) \\
+V_1 & = & \{
+ (0,1),(4,2),(8,3),(12,2),(16,4),(20,6) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 9}$, $\MARU{\tt 10}$, $\MARU{\tt 11}$ の
+のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt int [4][3]} に対する {\tt 2} 番目の
+オフセットと型は {\tt (24,int [3])} であると判別します. 型 {\tt int [3]}
+はスカラ型ではなく, 初期化指定子 {\tt 3, 5, 7} の型 {\tt int} がスカラ型
+ なので
+ {\bf assignment-expression における特殊な場合の手続き} を適用します.
+$\MARU{\tt 11}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{int\,\,[4][3]}},V_1,(36,36),(3,3),(9,9)) \\
+V_1 & = & \{
+ (0,1),(4,2),(8,3),(12,2),(16,4),(20,6),(24,3),(28,5),(32,7) \}
+\end{eqnarray*}
+となります. 
+
+ここで,  {\bf initializer-list に対する手続き}
+ \ref{initializer006} で適用された {\bf 0 による初期化の手続き}
+で条件が成立しています.
+すなわち, {\tt{initializer-list}} の最後の要素ですが, 型 {\tt{int [4][3]}}
+の $3$ 番目の要素が初期化されていないので, これを $0$ で埋めます.
+この結果
+\begin{eqnarray*}
+I_1 & = & ({\tt{int\,\,[4][3]}},V_1,(48,48),(3,3),(9,9)) \\
+V_1 & = & \{
+ (0,1),(4,3),(8,5),(12,2),(16,4),(20,6),(24,3),(28,5),(32,7), \\
+    &   &  (36,0), (40,0), (44,0) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 12}$ のポイントで  $V_1$ をオフセット {\tt 0} を加算した形
+で $V_0$ にコピーします. $\MARU{\tt 12}$ の処理後
+の結果は
+\begin{eqnarray*}
+I_0 & = & ({\tt{int\,\,[4][3]}},V_0,(48,48),(-1,-1),(-1,-1)) \\
+V_0 & = & \{
+ (0,1),(4,3),(8,5),(12,2),(16,4),(20,6),(24,3),(28,5),(32,7), \\
+    &   &  (36,0), (40,0), (44,0) \}
+\end{eqnarray*}
+となります.
+
+\end{Example}
+
+
+\begin{Example}
+\label{initializer013}
+
+\
+
+{\tt struct S \{ int a[3], b; \};}
+
+{\tt struct S x[] \Rubyt{=}{\MARU{\tt 1}}
+\Rubyt{\{}{\MARU{\tt 2}} \Rubyt{\{}{\MARU{\tt 3}}
+ \Rubyt{1}{\MARU{\tt 4}} \Rubyt{\}}{\MARU{\tt 5}},
+ \Rubyt{2}{\MARU{\tt 6}} \Rubyt{\}}{\MARU{\tt 7}};}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで
+\[
+I_0 \equiv ({\tt{struct\,\,S\,\,[]}}, V_0, (0,0),(-1,-1),(-1,-1))
+\]
+に対してアルゴリズムを適用します.
+
+\noindent
+$\MARU{\tt 2}$ のポイントで
+\[
+I_1 \equiv ({\tt{struct\,\,S\,\,[]}},V_1,(0,0),(0,0),(0,2)) 
+\]
+に対して {\bf initializer-list に対する手続き} \ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 3}$ のポイントで
+{\bf initializer-list に対する手続き}
+\ref{initializer005} により
+型 {\tt struct S[]} に対する {\tt{0}} 番目の
+オフセットと型は {\tt (0,struct S)} であると判別します.
+\[
+I_2 \equiv ({\tt{struct\,\,S}},V_2,(0,0),(0,0),(0,1)) 
+\]
+に対して
+ {\bf initializer-list に対する手続き} \ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 4}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt struct S} に対する
+{\tt 0} 番目のオフセットと型は  {\tt (0,int [3])} であると判別します.
+型 {\tt int [3]}
+はスカラ型ではなく, 初期化指定子 {\tt 1} の型 {\tt int} がスカラ型なので
+ {\bf assignment-expression における特殊な場合の手続き} を適用します.
+\[
+I_3 \equiv ({\tt{int\,\,[3]}},V_3,(0,0),(0,0),(1,1))
+\]
+に対して {\bf assignment-expression に対する手続き} を再度適用します.
+この結果,
+\begin{eqnarray*}
+I_3 & = & ({\tt{int\,\,[3]}},V_3,(12,12),(0,0),(1,1)) \\
+V_3 & = & \{(0,1)\}
+\end{eqnarray*}
+となります. 
+
+{\bf assignment-expression における特殊な場合の手続き}
+\ref{initializer011} で 
+$V_3$ をオフセット $0$ を加算した形で $V_2$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_2 & = & ({\tt{struct\,\,S}}, V_2, (4,4),(1,1),(1,1)) \\
+V_2 & = & \{(0,1)\}
+\end{eqnarray*}
+となります.
+
+ここで,  {\bf assignment-expression における特殊な場合の手続き}
+ \ref{initializer008} で適用された {\bf 0 による初期化の手続き}
+で条件が成立しています.
+すなわち, {\tt{initializer-list}} の最後の要素ですが, 型 {\tt{int [3]}}
+の $1,2$ 番目の要素が初期化されていないので, これを $0$ で埋めます.
+この結果
+\begin{eqnarray*}
+I_2 & = & ({\tt{struct\,\,S}}, V_2, (12,12),(1,1),(1,1)) \\
+V_2 & = & \{(0,1), (4,0), (8,0)\}
+\end{eqnarray*}
+となります.
+
+さらにここで, {\bf initializer-list に対する手続き} \ref{initializer006}
+で適用された {\bf 0 による初期化の手続き}
+で条件が成立しています.
+すなわち, {\tt{initializer-list}} の最後の要素ですが, {\tt{struct S}}
+の $1$ 番目の要素が初期化されていないので, これを $0$ で埋めます.
+この結果
+\begin{eqnarray*}
+I_2 & = & ({\tt{struct\,\,S}}, V_2, (16,16),(2,2),(1,1)) \\
+V_2 & = & \{(0,1), (4,0), (8,0), (12,0)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 5}$ のポイントで $V_2$ をオフセット {\tt 0} を加算した形
+で $V_1$ にコピーします. $\MARU{\tt 5}$ の処理後
+の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct,\,S\,\,[]}},V_1,(16,16),(1,1),(1,2)) \\
+V_1 & = & \{(0,1), (4,0), (8,0), (12,0)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 6}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt struct S []} に対する
+{\tt 1} 番目のオフセットと型は  {\tt (16, struct S)} であると判別します.
+{\tt struct S} はスカラ型ではなく, 初期化
+指定子 {\tt 2} の型 {\tt int} がスカラ型なので
+ {\bf assignment-expression における特殊な場合の手続き} を適用します.
+\[
+I_4 \equiv ({\tt{struct\,\,S}},V_4,(0,0),(0,0),(2,2))
+\]
+に対して {\bf assignment-expression に対する手続き} を再度適用します.
+
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt struct S} に対する
+{\tt 0} 番目のオフセットと型は  {\tt (0, int\,\,[3])} であると判別します.
+ここでも型
+{\tt int\,\,[3]} はスカラ型ではなく, 初期化
+指定子 {\tt 2} の型 {\tt int} がスカラ型なので
+ {\bf assignment-expression における特殊な場合の手続き} を適用します.
+\[
+I_5 \equiv ({\tt{int\,\,[3]}},V_5,(0,0),(0,0),(2,2))
+\]
+に対して {\bf assignment-expression に対する手続き} を再度適用します.
+
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt int [3]} に対する
+{\tt 0} 番目のオフセットと型は  {\tt (0, int)} であると判別します.
+この結果 $V_5$ に $(0,2)$ を追加します. 
+この結果
+\begin{eqnarray*}
+I_5 & = & ({\tt{int\,\,[3]}},V_5,(4,4),(1,1),(2,2)) \\
+V_5 & = & \{(0,2)\}
+\end{eqnarray*}
+となります.
+
+ここで
+{\bf assignment-expression における特殊な場合の手続き} \ref{initializer008}
+で適用された {\bf 0 による初期化の手続き}
+で条件が成立しています. $V_5$ に $(4,0),(8,0)$ を追加することになります.
+この結果
+\begin{eqnarray*}
+I_5 & = & ({\tt{int\,\,[3]}},V_5,(12,12),(3,3),(2,2)) \\
+V_5 & = & \{(0,2), (4,0), (8,0) \}
+\end{eqnarray*}
+となります. 
+
+{\bf assignment-expression における特殊な場合の手続き} 
+\ref{initializer011} において
+$V_5$ はオフセット {\tt 0} を加算した形
+で $V_4$ にコピーされます. この結果
+\begin{eqnarray*}
+I_4 & = & ({\tt{struct,\,S}},V_4,(12,12),(1,1),(2,2)) \\
+V_4 & = & \{(0,2), (4,0), (8,0) \}
+\end{eqnarray*}
+となります. 
+
+さらに 
+{\bf assignment-expression における特殊な場合の手続き} \ref{initializer008}
+で適用された {\bf 0 による初期化の手続き}
+で条件が成立しています.
+ $V_4$ に $(12,0)$ を追加することになります.
+この結果
+\begin{eqnarray*}
+I_4 & = & ({\tt{struct,\,S}},V_4,(16,16),(1,1),(2,2)) \\
+V_4 & = & \{(0,2), (4,0), (8,0), (12,0) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 7}$ のポイントで
+$V_4$ をオフセット {\tt 16} を加算した形で $V_1$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct,\,S\,\,[]}},V_1,(32,32),(1,1),(2,2)) \\
+V_1 & = & \{(0,1), (4,0), (8,0), (12,0) \\
+    &   &   (16,2), (20,0), (24,0), (28,0)  \}
+\end{eqnarray*}
+となります.
+
+さらに $V_1$ をオフセット {\tt 0} を加算した形で $V_0$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_0 & = & ({\tt{struct,\,S\,\,[]}},V_0,(32,32),(-1,-1),(-1,-1)) \\
+V_0 & = & \{(0,1), (4,0), (8,0), (12,0) \\
+    &   &   (16,2), (20,0), (24,0), (28,0)  \}
+\end{eqnarray*}
+
+以下に例 \ref{initializer013} における手続きとそれから
+呼び出される手続きとの関係, 各手続きの入力を示しました.
+
+\begin{list}{$\cdot$}{}
+\item {\bf initializer に対する手続き} $I_0$
+    \begin{list}{$\cdot$}{}
+    \item {\bf initializer-list に対する手続き} $I_0$
+        \begin{list}{$\cdot$}{}
+        \item {\bf initializer に対する手続き} $I_1$
+            \begin{list}{$\cdot$}{}
+            \item {\bf initializer-list に対する手続き} $I_1$
+                \begin{list}{$\cdot$}{}
+                \item {\bf initializer に対する手続き} $I_2$
+                    \begin{list}{$\cdot$}{}
+                    \item {\bf assignment-expression に対する手続き} $I_2$
+
+                         \begin{tabular}{cl}
+                         $\cdot$ & {\bf assignment-expression における
+			  特殊な場合の手続き} $I_2$ \\
+                                 & $\cdot$ {\bf assignment-expression
+			  に対する手続き} $I_3$  \\
+                         \end{tabular}
+                    \end{list}
+                \end{list}
+            \end{list}
+        \item {\bf initializer に対する手続き} $I_1$
+            \begin{list}{$\cdot$}{}
+            \item {\bf assignment-expression に対する手続き} $I_1$
+                \begin{list}{$\cdot$}{}
+                \item {\bf assignment-expression における特殊な場合の手続き} $I_1$
+                    \begin{list}{$\cdot$}{}
+                    \item {\bf assignment-expression に対する手続き} $I_4$
+
+                         \begin{tabular}{cl}
+                         $\cdot$ & {\bf assignment-expression における特
+			  殊な場合の手続き} $I_4$ \\
+                                 & $\cdot$ {\bf assignment-expression に対する手続き} $I_5$  \\
+                         \end{tabular}
+
+                    \end{list}
+                \end{list}
+            \end{list}
+        \end{list}
+    \end{list}
+\end{list}
+
+\end{Example}
+
+\begin{Example}
+
+\
+
+{\tt struct S \{ int a; char b[5]; double c; \};}
+
+{\tt struct S s \Rubyt{=}{\MARU{\tt 1}} 
+\Rubyt{\{}{\MARU{\tt 2}}}
+
+{\tt
+\Rubyt{}{\MARU{\tt 3}}
+\Rubyt{.c =}{\MARU{\tt 4}}
+\Rubyt{}{\MARU{\tt 5}}
+\Rubyt{1.0}{\MARU{\tt 6}}
+\Rubyt{}{\MARU{\tt 7}},
+}
+
+{\tt
+\Rubyt{}{\MARU{\tt 8}}
+\Rubyt{.a =}{\MARU{\tt 9}}
+\Rubyt{}{\MARU{\tt 10}}
+\Rubyt{2}{\MARU{\tt 11}}
+\Rubyt{}{\MARU{\tt 12}},
+}
+
+{\tt
+\Rubyt{}{\MARU{\tt 13}}
+\Rubyt{.b =}{\MARU{\tt 14}}
+\Rubyt{}{\MARU{\tt 15}}
+\Rubyt{"foo"}{\MARU{\tt 16}}
+\Rubyt{}{\MARU{\tt 17}}
+}
+
+{\tt \Rubyt{\}}{\MARU{\tt 18}};}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで
+\[
+I_0 \equiv ({\tt{struct\,\,S}}, V_0, (0,0),(-1,-1),(-1,-1))
+\]
+に対してアルゴリズムを適用します.
+
+
+\noindent
+$\MARU{\tt 2}$ のポイントで
+\[
+I_1 \equiv ({\tt{struct\,\,S}},V_1,(0,0),(0,0),(0,3)) 
+\]
+に対して  {\bf initializer-list に対する手続き} \ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 3}$ のポイントで
+\[
+I_2 \equiv ({\tt struct\,\,S}, V_2, (0,0), (-1,-1),(-1,-1))
+\]
+に対して
+{\bf designation に対する手続き} を適用します.
+
+\noindent
+$\MARU{\tt 4}$ のポイントで $I_2$ に対して
+{\bf メンバ指定 designator に対する手続き} を適用します.
+型 {\tt struct S} に対するメンバ {\tt c} は
+オフセット {\tt{16}}, 型 {\tt double}, $2$ 番目のメンバであると
+判別できます.
+\[
+ I_3 \equiv ({\tt{struct\,\,S},}V_3,0,0,0,0,0,0)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+この結果
+\[
+ V_3 = \{ (0,0), (4,'\verb|\|0'), (5,'\verb|\|0'), (6,'\verb|\|0'),
+           (7,'\verb|\|0'), (8,'\verb|\|0'), (16,0.0)    \}
+\]
+となります. $V_3$ からオフセット $16$ 以上の要素を削除します.
+この結果
+\[
+ V_3 = \{ (0,0), (4,'\verb|\|0'), (5,'\verb|\|0'), (6,'\verb|\|0'),
+           (7,'\verb|\|0'), (8,'\verb|\|0')  \}
+\]
+となります. $V_3$ をオフセット $0$ を加算した形で $V_2$ にコピーします.
+初期化対象の型 $I_2.T$ は {\tt{double}} に,
+$I_2.{\delta}, I_2.{\delta}_{\max}$ は $16$ に
+$I_2.n, I_2.n_{\max}$ は $2$ に更新されます.
+
+\noindent
+$\MARU{\tt 5}$ のポイントで $V_2$ からオフセット {\tt 0} 未満の
+要素を削除します. この場合 $V_2$ からは何も削除されません.
+$V_2$ を $V_1$ にコピーします. この結果
+\[
+V_1 = \{ (0,0), (4,'\verb|\|0'), (5,'\verb|\|0'), (6,'\verb|\|0'),
+        (7,'\verb|\|0'), (8,'\verb|\|0')    \}
+\]
+となります.
+そして, $V_4$ を空の初期値の集合とするとき
+\[
+I_4 \equiv ({\tt{double}}, V_4, (0,0), (-1,-1), (1,3))
+\]
+に対して {\bf initializer に対する手続き} を
+適用します.
+
+\noindent
+$\MARU{\tt 6}$ のポイントで $V_4$ に {\tt (0,1.0)} を追加します.
+
+\noindent
+$\MARU{\tt 7}$ のポイントで
+$V_4$ をオフセット {\tt 16} を加算した形で $V_1$ にコピーします.
+$I_1.\delta$ を更新した結果,
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S}},V_1,(24,24),(3,3),(1,3))  \\
+V_1 & = & \{ (0,0), (4,'\verb|\|0'), (5,'\verb|\|0'), (6,'\verb|\|0'),
+        (7,'\verb|\|0'), (8,'\verb|\|0'), (16,1.0)    \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 8}$ のポイントで, $V_5$ を空の初期値の集合とするとき
+\[
+I_5 \equiv ({\tt struct\,\,S}, V_5, (0,0), (-1,-1),(-1,-1))
+\]
+に対して
+{\bf designation に対する手続き} を適用します.
+
+\noindent
+$\MARU{\tt 9}$ のポイントで $I_5$ に対して
+{\bf メンバ指定 designator に対する手続き} を適用します.
+型 {\tt struct S} に対するメンバ {\tt a} は
+オフセット {\tt{0}}, 型 {\tt int}, {\tt{0}} 番目のメンバであると
+判別できます. $V_6$ を空の初期値の集合とするとき
+\[
+ I_6 \equiv ({\tt{struct\,\,S},}V_6,0,0,0,0,0,0)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+この結果
+\[
+V_6 = \{ (0,0), (4,'\verb|\|0'), (5,'\verb|\|0'), (6,'\verb|\|0'),
+           (7,'\verb|\|0'), (8,'\verb|\|0'), (16,0.0)    \}
+\]
+となります. $V_6$ からオフセット $0$ 以上の要素を削除します.
+この結果 $V_6$ は空集合となります.
+$V_6$ をオフセット $0$ を加算した形で $V_5$ にコピーします.
+したがって $V_5$ は変更されません.
+初期化対象の型 $I_5.T$ は {\tt{int}} に,
+$I_5.{\delta}$ は $0$ に
+$I_5.n$ は $0$ に更新されます.
+
+\noindent
+$\MARU{\tt 10}$ のポイントで $V_5$ からオフセット {\tt 24} 未満の
+要素を削除します. この場合 $V_5$ からは何も削除されません.
+$V_5$ を $V_1$ にコピーします. この結果
+\[
+V_1 = \{ (0,0), (4,'\verb|\|0'), (5,'\verb|\|0'), (6,'\verb|\|0'),
+        (7,'\verb|\|0'), (8,'\verb|\|0'), (16,1.0)    \}
+\]
+となります.
+そして, $V_7$ を空の初期値の集合とするとき
+\[
+I_7 \equiv ({\tt{int}}, V_7, (0,0), (-1,-1), (2,3))
+\]
+に対して {\bf initializer に対する手続き} を
+適用します.
+
+\noindent
+$\MARU{\tt 11}$ のポイントで $V_7$ に {\tt (0,2)} を追加します.
+
+
+\noindent
+$\MARU{\tt 12}$ のポイントで
+$V_7$ をオフセット {\tt 0} を加算した形で $V_1$ にコピーします.
+$I_1.\delta$ を更新した結果,
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S}},V_1,(0,24),(2,3),(2,3))  \\
+V_1 & = & \{ (0,2), (4,'\verb|\|0'), (5,'\verb|\|0'), (6,'\verb|\|0'),
+        (7,'\verb|\|0'), (8,'\verb|\|0'), (16,1.0)    \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 13}$ のポイントで, $V_8$ を空の初期値の集合とするとき
+\[
+I_8 \equiv ({\tt struct\,\,S}, V_8, (0,0), (-1,-1),(-1,-1))
+\]
+に対して
+{\bf designation に対する手続き} を適用します.
+
+\noindent
+$\MARU{\tt 14}$ のポイントで $I_8$ に対して
+{\bf メンバ指定 designator に対する手続き} を適用します.
+型 {\tt struct S} に対するメンバ {\tt b} は
+オフセット {\tt{4}}, 型 {\tt char [5]}, {\tt{1}} 番目のメンバであると
+判別できます. 
+$V_9$ を空の初期値の集合とするとき
+\[
+ I_9 \equiv ({\tt{struct\,\,S},}V_9,0,0,0,0,0,0)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+この結果
+\[
+V_9 = \{ (0,0), (4,'\verb|\|0'), (5,'\verb|\|0'), (6,'\verb|\|0'),
+           (7,'\verb|\|0'), (8,'\verb|\|0'), (16,0.0)    \}
+\]
+となります. $V_9$ からオフセット $4$ 以上の要素を削除します.
+この結果 $V_9 = \{(0,0)\}$ となります.
+$V_9$ をオフセット $0$ を加算した形で $V_8$ にコピーします.
+したがって $V_8 = V_9$ となります.
+初期化対象の型 $I_8.T$ は {\tt{char [5]}} に,
+$I_8.{\delta}$ は $4$ に
+$I_8.n$ は $1$ に更新されます.
+
+\noindent
+$\MARU{\tt 15}$ のポイントで $V_8$ からオフセット {\tt 24} 未満の
+要素を削除します. この場合 $V_8$ から $(0,0)$ が削除され, $V_8$ は
+空になります.
+$V_8$ を $V_1$ にコピーしますが, $V_1$ は変更されません.
+そして, $V_{10}$ を空の初期値の集合とするとき
+\[
+I_{10} \equiv ({\tt{char\,\,[5]}}, V_{10}, (0,0), (-1,-1), (3,3))
+\]
+に対して {\bf initializer に対する手続き} を
+適用します.
+
+\noindent
+$\MARU{\tt 16}$ のポイントで $V_{10}$ に 
+{\tt (0,'f'),(1,'o'),(2,'o'),(3,'\verb|\|0'),(4,'\verb|\|0')}
+を追加します.
+
+\noindent
+$\MARU{\tt 17}$ のポイントで
+$V_{10}$ をオフセット {\tt 4} を加算した形で $V_1$ にコピーします.
+$I_1.\delta$ を更新した結果,
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S}},V_1,(9,24),(3,3),(3,3))  \\
+V_1 & = & \{ (0,2), (4,{\tt{'f'}}), (5,{\tt{'o'}}), (6,{\tt{'o'}}),
+        (7,'\verb|\|0'), (8,'\verb|\|0'), (16,1.0)    \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 18}$ のポイントで
+$V_1$ をオフセット {\tt 0} を加算した形で $V_0$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_0 & = & ({\tt{struct\,\,S}},V_0,(9,24),(-1,-1),(-1,-1))  \\
+V_0 & = & \{ (0,2), (4,{\tt{'f'}}), (5,{\tt{'o'}}), (6,{\tt{'o'}}),
+        (7,'\verb|\|0'), (8,'\verb|\|0'), (16,1.0)  \}
+\end{eqnarray*}
+となります.
+\end{Example}
+
+\begin{Example}
+{\tt int a[] \Rubyt{=}{\MARU{\tt 1}}
+\Rubyt{\{}{\MARU{2}}}
+
+{\tt
+\Rubyt{}{\MARU{\tt 3}}
+\Rubyt{[3] =}{\MARU{\tt 4}}
+\Rubyt{}{\MARU{\tt 5}}
+\Rubyt{1}{\MARU{\tt 6}}
+\Rubyt{}{\MARU{\tt 7}},
+\Rubyt{2}{\MARU{\tt 8}}
+}
+
+{\tt \Rubyt{\}}{\MARU{\tt 9}};}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで, $V_0$ を空の初期値の集合とするとき
+\[
+I_0 \equiv ({\tt{int\,\,[]}}, V_0, (0,0),(-1,-1),(-1,-1))
+\]
+に対してアルゴリズムを適用します.
+
+\noindent
+$\MARU{\tt 2}$ のポイントで, $V_1$ を空の初期値の集合とするとき
+\[
+I_1 \equiv ({\tt{int\,\,[]}},V_1,(0,0),(0,0),(0,2)) 
+\]
+に対して  {\bf initializer-list に対する手続き} \ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 3}$ のポイントで, $V_2$ を空の初期値の集合とするとき
+\[
+I_2 \equiv ({\tt int\,\,[]}, V_2, (0,0), (-1,-1),(-1,-1))
+\]
+に対して
+{\bf designation に対する手続き} を適用します.
+
+\noindent
+$\MARU{\tt 4}$ のポイントで $I_2$ に対して
+{\bf 添字指定 designator に対する手続き} を適用します.
+ $V_3$ を空の初期値の集合とするとき
+\[
+ I_3 \equiv ({\tt{int\,\,[3]}}, V_3,0,0,0,0,0,0)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+この結果
+\[
+ V_3 = \{ (0,0), (4,0), (8,0) \}
+\]
+となります. これらをオフセット $0$ を加算した形で $V_2$ にコピーします.
+初期化対象の型 $I_2.T$ は {\tt{int}} に, 
+$I_2.{\delta}, I_2.{\delta}_{\max}$ は
+ $12$ に $I_2.n, I_2.n_{\max}$ は $3$ に更新されます.
+
+\noindent
+$\MARU{\tt 5}$ のポイントで $V_2$ からオフセット {\tt 0} 未満の
+要素を削除します. この場合 $V_2$ からは何も削除されません.
+$V_2$ を $V_1$ にコピーします. この結果
+\[
+V_1 = \{ (0,0), (4,0), (8,0) \}
+\]
+となります.
+そして $V_4$ を空の初期値の集合とするとき
+\[
+I_4 \equiv ({\tt{int}}, V_4, (0,0), (-1,-1), (1,3))
+\]
+に対して {\bf initializer に対する手続き} を
+適用します.
+
+\noindent
+$\MARU{\tt 6}$ のポイントで $V_4$ に {\tt (0,1)} を追加します.
+
+\noindent
+$\MARU{\tt 7}$ のポイントで
+$V_4$ をオフセット {\tt 12} を加算した形で $V_1$ にコピーします.
+$I_1.\delta$ を更新した結果,
+\begin{eqnarray*}
+I_1 & = & ({\tt{int\,\,[]}},V_1,(16,16),(3,3),(1,2))  \\
+V_1 & = & \{ (0,0), (4,0), (8,0), (12,1) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 8}$ のポイントで {\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt int []} の {\tt{4}} 番目のオフセットと
+型は {\tt (16,int)} であると判別できます.
+$V_1$ に {\tt (16,2)} を追加します. 
+この結果
+\begin{eqnarray*}
+I_1 & = & ({\tt{int\,\,[]}},V_1,(20,20),(4,4),(2,2))  \\
+V_1 & = & \{ (0,0), (4,0), (8,0), (12,1), (16,2) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 9}$ のポイントで
+$V_1$ をオフセット {\tt 0} を加算した形で $V_0$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_0 & = & ({\tt{int\,\,[]}},V_0,(20,20),(-1,-1),(-1,-1))  \\
+V_0 & = & \{ (0,0), (4,0), (8,0), (12,1), (16,2) \}
+\end{eqnarray*}
+となります.
+
+\end{Example}
+
+\begin{Example}
+
+\
+
+{\tt struct S \{ int a[3], b;\}; }
+
+{\tt struct S x[] 
+\Rubyt{=}{\MARU{\tt 1}}
+\Rubyt{\{}{\MARU{\tt 2}}
+}
+
+{\tt
+\Rubyt{}{\MARU{\tt 3}}
+\Rubyt{[0]}{\MARU{\tt 4}}
+\Rubyt{.a =}{\MARU{\tt 5}}
+\Rubyt{}{\MARU{\tt 6}}
+\Rubyt{\{}{\MARU{\tt 7}}
+\Rubyt{1}{\MARU{\tt 8}}
+\Rubyt{\}}{\MARU{\tt 9}}
+\Rubyt{}{\MARU{\tt 10}}
+,
+}
+
+{\tt
+\Rubyt{}{\MARU{\tt 11}}
+\Rubyt{[1]}{\MARU{\tt 12}}
+\Rubyt{.a}{\MARU{\tt 13}}
+\Rubyt{[0] =}{\MARU{\tt 14}}
+\Rubyt{}{\MARU{\tt 15}}
+\Rubyt{2}{\MARU{\tt 16}}
+\Rubyt{}{\MARU{\tt 17}}
+}
+
+{\tt
+\Rubyt{\}}{\MARU{\tt 18}};
+}
+
+\noindent
+$\MARU{\tt 1}$ のポイントで $V_0$ を空の初期値の集合とするとき
+\[
+I_0 \equiv ({\tt{struct\,\,S\,\,[]}}, V_0, (0,0),(-1,-1),(-1,-1))
+\]
+に対してアルゴリズムを適用します.
+
+\noindent
+$\MARU{\tt 2}$ のポイントで $V_1$ を空の初期値の集合とするとき
+\[
+I_1 \equiv ({\tt{struct\,\,S\,\,[]}},V_1,(0,0),(0,0),(0,2)) 
+\]
+に対して  {\bf initializer-list に対する手続き} \ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 3}$ のポイントで $V_2$ を空の初期値の集合とするとき
+\[
+I_2 \equiv ({\tt struct\,\,S\,\,[]}, V_2, (0,0), (-1,-1),(-1,-1))
+\]
+に対して
+{\bf designation に対する手続き} を適用します.
+
+\noindent
+$\MARU{\tt 4}$ のポイントで $I_2$ に対して
+{\bf 添字指定 designator に対する手続き} を適用します.
+$V_3$ を空の初期値の集合とするとき
+\[
+ I_3 \equiv ({\tt{struct\,\,S\,\,[0]}},V_3,0,0,0,0)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+この結果 $V_3$ は空集合のままとなります.
+$V_3$ をオフセット $I_2.\delta_{\max} = 0$ を加算した形で $V_2$ にコピーします.
+したがって $V_2$ も空集合のままとなります.
+$I_2.T, I_2.{\delta}, I_2.{\delta}_{\max}, I_2.n, I_2.n_{\max}$
+を更新し
+\[
+I_2 = ({\tt struct\,\,S}, V_2, (0,0), (0,0),(-1,-1))
+\]
+となります.
+
+\noindent
+$\MARU{\tt 5}$ のポイントで $I_2$ に対して
+{\bf メンバ指定 designator に対する手続き} を適用します.
+型 {\tt struct S} に対するメンバ {\tt a} は
+オフセット {\tt{0}}, 型 {\tt int [3]}, {\tt{0}} 番目のメンバであると
+判別できます. $V_4$ を空の初期値の集合とするとき
+\[
+ I_4 \equiv ({\tt{struct\,\,S}},V_4,0,0,0,0,0,0)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+この結果
+\[
+ V_4 = \{(0,0),(4,0),(8,0),(12,0)\}
+\]
+となります. $V_4$ からオフセット $0$ 以上の要素を削除すると
+$V_4$ は空になります. $V_4$ をオフセット $I_2.\delta_{\max} = 0$ を加算した
+形で $V_2$ にコピーします. したがって $V_2$ も空集合の
+ままとなります.
+$I_2.T, I_2.{\delta}, I_2.{\delta}_{\max}, I_2.n, I_2.n_{\max}$
+を更新し
+\[
+I_2 = ({\tt int\,\,[3]}, V_2, (0,0), (0,0),(-1,-1))
+\]
+となります.
+
+\noindent
+$\MARU{\tt 6}$ のポイントで $V_2$ からオフセット $I_1.\delta_{\max} = 0$
+ 未満の
+ものを削除します. この場合 $V_2$ は空集合なので何も削除されません.
+$V_2$ を $V_1$ にコピーします.
+この場合 $V_2$ は空集合なので, 何もコピーされません.
+\[
+ I_5 = ({\tt int\,\,[3]}, V_5, (0,0), (-1,-1),(1,2))
+\]
+を入力として {\bf initializer に対する手続き} を適用します.
+
+\noindent
+$\MARU{\tt 7}$ のポイントで
+\[
+ I_6 \equiv ({\tt int\,\,[3]},V_6,(0,0),(0,0),(0,1))
+\]
+に対して {\bf initializer-list に対する手続き}
+\ref{initializer009}
+を適用します.
+
+\noindent
+$\MARU{\tt 8}$ のポイントで
+{\bf assignment-expression に対する手続き}
+\ref{initializer004} により
+型 {\tt{int [3]}} の {\tt{0}} 番目のオフセットと型は
+$0$, {\tt{int}} であると判別します.
+$\MARU{\tt 8}$ の処理後の結果は
+\begin{eqnarray*}
+I_6 & = & ({\tt{int\,\,[3]}},V_6,(4,4),(1,1),(1,1)) \\
+V_6 & = & \{(0,1)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 9}$ のポイントで
+ $I_6$ に対して
+{\bf initializer-list に対する手続き} \ref{initializer006}
+で適用された {\bf 0 による初期化の手続き}
+で条件が成立しています.
+この結果
+\begin{eqnarray*}
+I_6 & = & ({\tt{int\,\,[3]}},V_6,(12,12),(3,3),(1,1)) \\
+V_6 & = & \{(0,1), (4,0), (8,0)\}
+\end{eqnarray*}
+となります. 
+
+\noindent
+$\MARU{\tt 10}$ のポイントで
+$V_6$ をオフセット $I_5.\delta = 0$ を加算した形で $V_5$ にコピーします.
+さらに $V_5$ をオフセット $I_1.\delta = 0$ を加算した形で $V_1$ にコピーします.
+$\MARU{\tt 10}$ の処理後の結果は
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S\,\,[]}},V_1,(12,12),(1,1),(1,2))  \\
+V_1 & = & \{(0,1), (4,0), (8,0)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 11}$ のポイントで
+\[
+I_7 \equiv ({\tt struct\,\,S\,\,[]}, V_7, (0,0), (-1,-1),(-1,-1))
+\]
+に対して
+{\bf designation に対する手続き} を適用します.
+
+\noindent
+$\MARU{\tt 12}$ のポイントで $I_7$ に対して
+{\bf 添字指定 designator に対する手続き} を適用します.
+型 {\tt{struct S []}} $1$ 番目のオフセットと型は
+$16$, {\tt{struct S}} であると判別できます.
+$V_8$ を空の初期値の集合とするとき
+\[
+ I_8 \equiv ({\tt{struct\,\,S[1]}},V_8,0,0,0,0,0,0)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+この結果
+\[
+ V_8 = \{(0,0), (4,0), (8,0), (12,0) \}
+\]
+で, $V_8$ をオフセット $0$ を加算した形で $V_7$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_7 & = & ({\tt struct\,\,S}, V_7, (16,16), (1,1),(-1,-1)) \\
+V_7 & = & \{(0,0), (4,0), (8,0), (12,0) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 13}$ のポイントで $I_7$ に対して
+{\bf メンバ指定 designator に対する手続き} を適用します.
+型 {\tt struct S} に対するメンバ {\tt a} は
+オフセット {\tt{0}}, 型 {\tt int [3]}, {\tt{0}} 番目のメンバであると
+判別できます. $V_9$ を空の初期値の集合とするとき
+\[
+I_9 \equiv ({\tt{struct\,\,S}},V_9,0,0,0,0,0,0)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+この結果
+\[
+ V_9 = \{(0,0), (4,0), (8,0), (12,0) \}
+\]
+となります. $V_9$ からオフセット $0$  以上の要素を削除すると
+$V_9$ は空になります. $V_9$ をオフセット $I_7.\delta = 16$
+を加算した形で $V_7$ にコピーします. したがって
+$V_7$ は変更されず, $I_7$ は
+\begin{eqnarray*}
+I_7 & = & ({\tt int\,\,[3]}, V_7, (16,16), (0,1),(-1,-1)) \\
+V_7 & = & \{(0,0), (4,0), (8,0), (12,0) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 14}$ のポイントで $I_7$ に対して
+{\bf 添字指定 designator に対する手続き} を適用します.
+型 {\tt{int [3]}} の $0$ 番目のオフセットと型は
+$0$, {\tt{int}} であると判別できます.
+$V_{10}$ を空の初期値の集合とするとき
+\[
+ I_{10} \equiv ({\tt{int\,\,[0]}},V_{10},0,0,0,0,0,0)
+\]
+に対して {\bf 0 による初期化の手続き} を適用します.
+この結果 $V_{10}$ は空集合で, これをオフセット $I_7.\delta = 16$ 
+を加算した形で $V_7$ にコピーします. したがって
+$V_7$ は変更されず, $I_7$ は
+\begin{eqnarray*}
+I_7 & = & ({\tt int}, V_7, (16,16), (0,1),(-1,-1)) \\
+V_7 & = & \{(0,0), (4,0), (8,0), (12,0) \}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 15}$ のポイントで $V_7$ からオフセッ
+ト $I_1.\delta_{\max} = 12$ 未満の
+ものを削除します. この結果 $V_7 = \{ (12,0)\}$ となります.
+$V_7$ を $V_1$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S\,\,[]}},V_1,(16,16),(1,1),(1,2))  \\
+V_1 & = & \{(0,1), (4,0), (8,0),(12,0)\}
+\end{eqnarray*}
+となります.
+となります. 空の初期値の集合 $V_{11}$ に対して
+\[
+ I_{11} \equiv ({\tt int}, V_{11}, (0,0), (-1,-1),(2,2))
+\]
+を入力として {\bf initializer に対する手続き} を適用します.
+
+\noindent
+$\MARU{\tt 16}$ のポイントで $V_{11}$ に $(0,2)$ を追加します.
+
+\noindent
+$\MARU{\tt 17}$ のポイントで $V_{11}$ をオフセット
+$I_1.\delta = 16$ を加えた形で $V_1$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S\,\,[]}},V_1,(20,20),(1,1),(2,2))  \\
+V_1 & = & \{(0,1), (4,0), (8,0),(12,0), (16,2)\}
+\end{eqnarray*}
+となります.
+
+さらに {\bf designation に対する手続き} \ref{initializer015}
+において
+$V_{12}$ を空の初期値の集合とするとき
+\[
+I_{12} \equiv ({\tt{struct\,\,S\,\,[2]}},V''',0,0,0,0,2,2)
+\]
+に対して {\bf 0 による初期化の手続き} 
+を適用します. この結果
+\[
+V_{12}  = \{(0,0),(4,0),(8,0),(12,0),(16,0),(20,0),(24,0),(28,0) \}
+\]
+となります. $V_{12}$ からオフセット $I_1.\delta_{\max} = 20$ より小さい
+要素を削除します. この結果
+\[
+V_{12}  = \{(20,0), (24,0),(28,0) \} 
+\]
+となります. $V_{12}$ を $I_1.V$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_1 & = & ({\tt{struct\,\,S\,\,[]}},V_1,(32,32),(2,2),(2,2))  \\
+ V_1 & = & \{(0,1),(4,0),(8,0),(12,0),(16,2),(20,0),(24,0),(28,0)\}
+\end{eqnarray*}
+となります.
+
+\noindent
+$\MARU{\tt 18}$ のポイントで $V_1$ をオフセット $0$ を
+加えた形で $V_0$ にコピーします.
+この結果
+\begin{eqnarray*}
+I_0 & = & ({\tt{struct\,\,S\,\,[]}},V_0,(32,32),(-1,-1),(-1,-1))  \\
+ V_0 & = & \{(0,1),(4,0),(8,0),(12,0),(16,2),(20,0),(24,0),(28,0)\}
+\end{eqnarray*}
+となります.
+
+\end{Example}

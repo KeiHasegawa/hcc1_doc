@@ -1,0 +1,1076 @@
+\label{stmt_e006}
+In this chapter, we'll discuss about the way of generating 3 address
+codes for each statement. In chapter \ref{expr_e000}, we defined the
+interface for expression as the class `{\tt{expr}}' and represented
+the syntax analisis tree with it while bottom-up parsing. Samely,
+we'll define the interface for statemnet like bellow
+\begin{verbatim}
+struct stmt {
+  virtual void gen() = 0;  // Generate 3 address codes.
+  virtual ~stmt(){}
+};
+\end{verbatim}
+When the grammer symbol `{\tt{function-definition}}' is reduced,
+frontend generates 3 address codes like bellow.
+\begin{verbatim}
+%{
+/* yacc program text */
+vector<_3ac*> code;
+
+struct comp_stmt : stmt {
+  ...
+  void gen();  // Override pure virtual function
+};
+%}
+
+%%
+
+function_definition
+  : function_header compound_statement
+    { function_definition($2); }
+  ;
+...
+
+%%
+
+void function_definition(comp_stmt* cs)
+{
+  cs->gen();  // 3 address codes of this function are stored
+              // in global container `code'.
+  ...
+}
+\end{verbatim}
+
+\section{{\tt{labeled-statement}}}
+
+\subsection{label statement}
+\label{stmt_e000}
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct label_stmt : stmt {
+  string m_label;
+  stmt* m_stmt;
+  ...
+  void gen();
+};
+\end{verbatim}
+Thinking about the situation where
+a label definition is followed by {\tt{goto}} statement or
+{\tt{goto}} statement is followed by a label definition,
+we'll define two tables like bellow.
+\begin{verbatim}
+struct define {
+  ...
+  to3ac* m_to;
+};
+
+map<string, define> defined;  // Defined label
+
+struct use {
+  ...
+  goto3ac* m_goto;
+};
+
+map<string, use> used;  // Used label without definition
+\end{verbatim}
+{\tt{label\_stmt::gen}} referencing these tables
+becomes like bellow.
+\begin{verbatim}
+void label_stmt::gen()
+{
+  map<string, define>::const_iterator p = defined.find(m_label);
+  if ( p != defined.end() ) {
+    // Already defined. Error.
+  }
+
+  to3ac* to = new to3ac;
+  code.push_back(to);
+  defined[m_label].m_to = to;  // Add this label into table.
+
+  map<string, vector<use> >::iterator p = used.find(m_label);
+  if ( p != used.end() ) {
+    // For each `goto3ac', decide `goto3ac::m_to'.
+    const vector<use>& v = p->second;
+    for_each(v.begin(),v.end(),bind2nd(ptr_fun(decide),to));
+    used.erase(p);
+  }
+  m_stmt->gen();
+}
+\end{verbatim}
+Please reference \ref{stmt_e001}.
+
+\subsection{{\tt{case}} statement}
+\label{stmt_e002}
+The way of generating 3 address codes for {\tt{case}} statement
+depends on the way of that for {\tt{switch}} statement.
+Here we'll chose the way which is described at ``8.5 Switch statement
+(Figure 8.27)'' of bibliography \cite{doragon}.
+But please note that the way desrbied at bibliography \cite{doragon}
+assumes that
+{\tt{break}} statement of C language is executed after {\tt{case}} statement,
+and that {\tt{default}} statement can only occur
+after all {\tt{case}} statements.
+
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct case_stmt : stmt {
+  expr* m_expr;
+  stmt* m_stmt;
+  ...
+  void gen();
+};
+\end{verbatim}
+Becase {\tt{case}} statement shall occur inside {\tt{switch}} statement,
+we'll define stack which contains {\tt{switch}} statement infomation.
+\begin{verbatim}
+struct case_info {
+  ...
+  var* m_expr;
+  to3ac* m_to;
+};
+
+struct switch_info {
+  ...
+  vector<case_info> m_cases;
+};
+
+vector<switch_info*> switch_stack;
+
+void case_stmt::gen()
+{
+  var* expr = m_expr->gen();
+  expr = expr->rvalue();
+  if ( !expr->isconstant() ) {
+    // Not constant. Error.
+  }
+  const type* T = expr->m_type;
+  if ( !T->integer() ) {
+    // Not integer. Error.
+  }
+  if ( switch_stack.empty() ) {
+    // Not inside switch statement. Error.
+  }
+  switch_info* top = switch_stack.top();
+  vector<case_info>& v = top->m_cases;
+  vector<case_info>::iterator p =
+    find_if(v.begin(),v.end(),bind2nd(ptr_fun(cmp),expr));
+  if ( p != v.end() ) {
+    // There was the same case-value. Error.
+  }
+  to3ac* to = new to3ac;
+  code.push_back(to);
+  v.push_back(case_info(expr,to,...));
+  return m_stmt->gen();
+}
+\end{verbatim}
+
+\subsection{{\tt{default}} statement}
+\label{stmt_e003}
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct default_stmt : stmt {
+  stmt* m_stmt;
+  ...
+  void gen();
+};
+\end{verbatim}
+Samely with {\tt{case}} statement described at \ref{stmt_e002},
+{\tt{default}} statement shall occur inside {\tt{switch}}.
+For this, frontend references the stack used at \ref{stmt_e002} which contains
+{\tt{switch}} statement infomation.
+\begin{verbatim}
+struct default_info {
+  ...
+  to3ac* m_to; 
+};
+
+struct switch_info {
+  ...
+  default_info m_default;
+};
+
+void default_stmt::gen()
+{
+  if ( switch_stack.empty() ) {
+    // Not inside switch statement. Error.
+  }
+
+  switch_info* top = switch_stack.top();
+  if ( top->m_default.m_to ) {
+    // Already default statement existed in this
+    // switch statement. Error.
+  }
+
+  to3ac* to = new to3ac;
+  code.push_back(to);
+  top->m_default.m_to = to;
+
+  return m_stmt->gen();
+}
+\end{verbatim}
+
+\section{{\tt{compound-statement}}}
+
+In the grammer of bibliography \cite{ISO}, a declaration and a statement
+can mix each other. The initializer code for non-static variable must
+be executed in order. i.e. It must follows the initializer codes and
+statement codes which occur before it and must be followed by
+the initializer codes and
+statement codes which occur after it.
+
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct comp_stmt : stmt {
+  typedef pair<vector<tac*>, stmt*> item;
+  vector<item> m_items;
+  scope* m_scope;
+  ...
+  void gen();
+};
+\end{verbatim}
+{\tt{item::first}} is according to the initializer code.
+{\tt{comp\_stmt::gen}} becomes like bellow.
+\begin{verbatim}
+void subr(const item& i)
+{
+  if ( stmt* s = i.second )
+    s->gen();
+  else {
+    vector<tac*>& v = i.first;
+    copy(v.begin(),v.end(),back_inserter(code));
+  }
+}
+
+void comp_stmt::gen()
+{
+  struct x {
+    scope* m_org;
+     x(){ m_org = scope::current; }
+    ~x(){ scope::current = m_org;  }
+  } x;
+  scope::current = m_scope;
+  for_each(m_items.begin(),m_items.end(),subr);
+}
+\end{verbatim}
+
+\section{{\tt{exrepssion-statement}}}
+
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct expr_stmt : stmt {
+  expr* m_expr;
+  ...
+  void gen()
+  {
+    var* expr = m_expr->eval();
+    expr = expr->rvalue();
+    const type* T = expr->m_type;
+    if ( T is incomplete tagged type ) {
+      // Errror.
+    }
+  }
+};
+\end{verbatim}
+
+\section{{\tt{selection-statement}}}
+
+\subsection{{\tt{if}} statement}
+
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct if_stmt : stmt {
+  expr* m_expr;
+  stmt* m_stmt1;
+  stmt* m_stmt2;  // statment following `else'
+  ...
+  void gen()
+  {
+    var* expr = m_expr->gen();
+    expr->if_code(this);  // Call virtual function
+  }
+};
+\end{verbatim}
+As we mentioned at \ref{expr_e016}, the way of generating 3 address
+codes for {\tt{if}} statement depends on the result of evaluating 
+expression. {\tt{var::if\_code}} which generates most general codes
+becomes like bellow.
+\begin{verbatim}
+void var::if_code(if_stmt* info)
+{
+  var* expr = rvalue();
+  const type* T = expr->m_type;
+  if ( !T->scalar() ) {
+    // Not scalar. Error.
+  }
+  T = T->promotion();
+  expr = expr->cast(T);
+  var* zero = integer::create(0);
+  zero = zero->cast(T);
+
+  // Generate codes like if expression equals zero then jump.
+  goto3ac* goto1 = new goto3ac(goto3ac::EQ,expr,zero);
+  code.push_back(goto1);
+  info->m_stmt1->gen();
+  if ( !info->m_stmt2 ) {
+    // No else case
+    to3ac* to1 = new to3ac;
+    code.push_back(to1);
+    to1->m_goto.push_back(goto1);
+    goto1->m_to = to1;
+    return;
+  }
+
+  // Else case
+  goto3ac* goto2 = new goto3ac;
+  code.push_back(goto2);
+  to3ac* to1 = new to3ac;
+  code.push_back(to1);
+  to1->m_goto.push_back(goto1);
+  goto1->m_to = to1;
+  info->m_stmt2->gen();
+  to3ac* to2 = new to3ac;
+  code.push_back(to2);
+  to2->m_goto.push_back(goto2);
+  goto2->m_to = to2;
+}
+\end{verbatim}
+{\tt{var01}} in figure \ref{expr_e013} becomes 0 or 1 in
+execution-time. We can use the characteristic.
+The way of generating {\tt{if}} statement 3 address code for {\tt{var01}} 
+becomes like bellow.
+\begin{verbatim}
+void var01::if_code(if_stmt* info)  // Override virtual function
+{
+  // Replace the codes like bellow
+  //
+  //   if y op z goto label
+  //   res := 1             # This position is recorded in `m_one'
+  //   goto end
+  // label:
+  //   res := 0             # This position is recorded in `m_zero'
+  // end:
+  //
+  // to like bellow
+  //
+  //   if y op z goto label
+  //   (Codes of info->m_stmt1)
+  //   goto end
+  // label:
+  //   (Codes of info->m_stmt2)
+  // end:
+}
+\end{verbatim}
+For arithmetic constant and constant pointer,
+the way of generating {\tt{if}} statement 3 address code
+becomes like bellow.
+\begin{verbatim}
+template<class T> void common(constant<T>* ptr, if_stmt* info);
+
+// Override virtual function
+void constant<char>::if_code(if_stmt* info){ common(this,info); }
+...
+void constant<long double>::if_code(if_stmt* info){ common(this,info); }
+void constant<void*>::if_code(if_stmt* info){ common(this,info); }
+
+template<class T> void common(constant<T>* ptr, if_stmt* info)
+{
+  if ( ptr->zero() ) {
+    int n = code.size();
+    info->m_stmt1->gen();  // Once, gnerate 3 address code
+    code.resize(n);        // and discard them
+    if ( info->m_stmt2 )
+      info->m_stmt2->gen();
+  }
+  else {
+    info->m_stmt1->gen();
+    if ( info->m_stmt2 ) {
+      int n = code.size();
+      info->m_stmt2->gen();  // Once, gnerate 3 address code
+      code.resize(n);        // and discard them
+    }
+  }
+}
+\end{verbatim}
+Here, frontend must check error for statements.
+So, once generates 3 address codes and discards them.
+
+\subsection{{\tt{switch}} statement}
+\label{stmt_e005}
+We mentioned about the way of generating 3 address codes for
+``{\tt{case}} statement'' at \ref{stmt_e002} and
+for ``{\tt{default}} statement'' at \ref{stmt_e003},
+there, frontend just generated 3 address code `{\tt{to3ac}}' for
+jump destination address and recorded the `{\tt{to3ac}}' in
+outside {\tt{switch}} statement, especially, for {\tt{case}}
+statement, also recorded the result of evaluating expression
+in outside {\tt{switch}} statement.
+
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct break_outer : vector<goto3ac*> {};
+
+struct switch_stmt : stmt, break_outer {
+  expr* m_expr;
+  stmt* m_stmt;
+  vector<case_info> m_cases;
+  default_info m_default;
+  ...
+  void gen();
+};
+\end{verbatim}
+The reasone why {\tt{switch\_stmt}} is derived from {\tt{break\_outer}}
+is to update jump destination address according to {\tt{break}} statement.
+\begin{verbatim}
+stack<break_outer*> break_stack;
+
+void switch_stmt::gen()
+{
+  var* expr = m_expr->gen();
+  expr = expr->rvalue();
+  const type* T = expr->m_type;
+  if ( !T->integer() ) {
+    // Not integer. Error.
+  }
+  goto3ac* start = new goto3ac;
+  code.push_back(start);
+  switch_stack.push(this);
+  break_stack.push(this);
+  m_stmt->gen();
+  break_stack.pop();
+  switch_stack.pop();
+  goto3ac* last = new goto3ac;
+  code.push_back(last);
+  to3ac* to1 = new to3ac;
+  code.push_back(to1);
+  to1->m_goto.push_back(start);
+  start->m_to = to1;
+
+  // For each case statement, generate conditional jump 3 address code
+  for_each(m_cases.begin(),m_cases.end(),bind1st(ptr_fun(gencode),expr));
+
+  if ( to3ac* to = m_default.m_to ) {
+    // There is default statement in this switch statement.
+    // So, if condition doesn't hold for above case statement,
+    // jump to default.
+    goto3ac* go = new goto3ac;
+    code.push_back(go);
+    to->m_goto.push_back(go);
+    go->m_to = to;
+  }
+
+  to3ac* to2 = new to3ac;
+  code.push_back(to2);
+
+  // Update destination address according to break statement
+  for_each(begin(),end(),bind2nd(ptr_fun(update),to2));
+  copy(begin(),end(),back_inserter(to2->m_goto));
+
+  to2->m_goto.push_back(last);
+  last->m_to = to2;
+}
+\end{verbatim}
+For example,
+\begin{verbatim}
+void f(int n)
+{
+  switch ( n ) {
+  case 0: stmt0
+  case 2: stmt2
+  default: stmtd 
+  case 1: stmt1
+  }
+}
+\end{verbatim}
+3 address codes for above function becomes like bellow.
+\begin{verbatim}
+f:
+  goto to1  # goto3ac* `start' of switch_stmt::gen
+label0:
+  (Code of stmt0)
+label2:
+  (Code of stmt2)
+labeld:
+  (Code of stmtd)
+label1:
+  (Code of stmt1)
+  goto to2  # goto3ac* `last' of switch_stmt::gen
+to1:
+  if n == 0 goto label0
+  if n == 2 goto label2
+  if n == 1 goto label1
+  goto labeld
+to2:  # break statement destination address in switch statement
+\end{verbatim}
+
+\section{{\tt{iteration-statement}}}
+
+\subsection{{\tt{while}} statement}
+\label{stmt_e004}
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct continue_outer : vector<goto3ac*> {};
+
+struct while_stmt : stmt, break_outer, continue_outer {
+  expr* m_expr;
+  stmt* m_stmt;
+  ...
+  void gen()
+  {
+    to3ac* begin = new to3ac;
+    code.push_back(begin);
+    var* expr = m_expr->eval();
+    expr->while_code(this,begin);  // Call virtual function
+  }
+};
+\end{verbatim}
+The reasone why {\tt{while\_stmt}} is derived from {\tt{break\_outer}}
+is to update jump destination address according to {\tt{break}}
+statement, samely with {\tt{switch\_stmt}}.
+And more, the reason why
+{\tt{while\_stmt}} is derived from {\tt{continue\_outer}}
+is to update jump destination address according to {\tt{continue}}
+statement.
+
+Samely with {\tt{if}} statement code generation,
+we'll call virtual function for the result of evaluating
+expression. 
+{\tt{var::while\_code}} which generates most general codes
+becomes like bellow.
+\begin{verbatim}
+stack<continue_outer*> continue_stack;
+
+void var::while_code(while_stmt* info, to3ac* begin)
+{
+  var* expr = rvalue();
+  expr = expr->promotion();
+  const type* T = expr->m_type;
+  if ( !T->scalar() ) {
+    // Not scalar. Error.
+  }
+  var* zero = integer::create(0);
+  zero = zero->cast(T);
+
+  // Generate codes like if expression equals to zero then leave loop.
+  goto3ac* goto2 = new goto3ac(goto3ac::EQ,expr,zero);
+  code.push_back(goto2);
+
+  break_stack.push(info);
+  continue_stack.push(info);
+  info->m_stmt->gen();
+  continue_stack.pop();
+  break_stack.pop();
+
+  // Update destination address according to continue statement
+  continue_outer& c = *info;
+  for_each(c.begin(),c.end(),bind2nd(ptr_fun(update),begin));
+  copy(c.begin(),c.end(),back_inserter(begin->m_goto));
+
+  // Jump to the loop head
+  goto3ac* goto1 = new goto3ac;
+  code.push_back(goto1);
+  begin->m_goto.push_back(goto1);
+  goto1->m_to = begin;
+
+  to3ac* end = new to3ac;
+  code.push_back(end);
+  end->m_goto.push_back(goto2);
+  goto2->m_to = end;
+
+  // Update destination address according to break statement
+  break_stmt::outer& b = *info;
+  for_each(b.begin(),b.end(),bind2nd(ptr_fun(update),end));
+  copy(b.begin(),b.end(),back_inserter(end->m_goto));
+}
+\end{verbatim}
+For {\tt{var01}} in figure \ref{expr_e013},
+the way of generating {\tt{while}} statement 3 address code
+becomes like bellow.
+\begin{verbatim}
+// Override virtual function
+void var01::while_code(while_stmt* info, to3ac* begin)
+{
+  // Replace the codes like bellow
+  //
+  //   if y op z goto label
+  //   res := 1             # This position is recorded in `m_one'
+  //   goto end
+  // label:
+  //   res := 0             # This position is recorded in `m_zero'
+  // end:
+  //
+  // to like bellow
+  //
+  // begin:
+  //   if y op z goto label
+  //   (Code of info->m_stmt)
+  //   goto begin
+  // label:
+}
+\end{verbatim}
+For arithmetic constant and constant pointer,
+the way of generating {\tt{while}} statement 3 address code
+becomes like bellow.
+\begin{verbatim}
+template<class T> void
+common(constant<T>* ptr, while_stmt* info, to3ac* begin);
+
+// Override virtual function
+void constant<char>::while_code(while_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+...
+void constant<long double>::while_code(while_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+void constant<void*>::while_code(while_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+
+template<class T> void
+common(constant<T>* ptr, while_stmt* info, to3ac* begin)
+{
+  if ( !ptr->zero() ) {
+    // Samely with var::while_code, except for entering
+    // loop unconditionally.
+  }
+  else {
+    int n = code.size();
+    info->m_stmt->gen();  // Once, gnerate 3 address code
+    code.resize(n);       // and discard them
+  }
+}
+\end{verbatim}
+
+\subsection{{\tt{do-while}} statement}
+
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct do_stmt : stmt, break_outer, continue_outer {
+  stmt* m_stmt;
+  expr* m_expr;
+  ...
+  void gen()
+  {
+    to3ac* begin = new to3ac;
+    code.push_back(begin);
+    break_stack.push(this);
+    continue_stack.push(this);
+    m_stmt->gen();
+    continue_stack.pop();
+    break_stack.pop();
+    to3ac* to2 = new to3ac;
+    code.push_back(to2);
+    continue_stmt::outer& c = *this;
+
+    // Update destination address according to continue statement
+    for_each(c.begin(),c.end(),bind2nd(ptr_fun(update),to2));
+    copy(c.begin(),c.end(),back_inserter(to2->m_goto));
+
+    var* expr = m_expr->gen();
+    expr->do_code(this,begin);  // Call virtual function
+                                // for generating the rest code.
+  }
+};
+\end{verbatim}
+Samely with {\tt{while}} statement, {\tt{do\_stmt}} is
+derived from {\tt{break\_outer}} and {\tt{continue\_outer}}.
+{\tt{var::do\_code}} which generates most general codes
+becomes like bellow.
+\begin{verbatim}
+void var::do_code(do_stmt* info, to3ac* begin)
+{
+  var* expr = rvalue();
+  expr = expr->promotion();
+  const type* T = expr->m_type;
+  if ( !T->scalar() ) {
+    // Not scalar. Error.
+  }
+  var* zero = integer::create(0);
+  zero = zero->cast(T);
+
+  // Generate code like if expression doesn't equals to zero then
+  // jump to the loop head.
+  goto3ac* go = new goto3ac(goto3ac::NE,expr,zero);
+  code.push_back(go);
+  begin->m_goto.push_back(go);
+  go->m_to = begin;
+
+  to3ac* end = new to3ac;
+  code.push_back(end);
+
+  // Update destination address according to break statement
+  break_stmt::outer& b = *info;
+  for_each(b.begin(),b.end(),bind2nd(ptr_fun(update),end));
+  copy(b.begin(),b.end(),back_inserter(end->m_goto));
+}
+\end{verbatim}
+For {\tt{var01}} in figure \ref{expr_e013},
+the way of generating {\tt{do-while}} statement 3 address code
+becomes like bellow.
+\begin{verbatim}
+// Override virtual function
+void var01::do_code(do_stmt* info, to3ac* begin)
+{
+  // Replace the codes like bellow
+  //
+  //   if y op z goto label
+  //   res := 1             # This position is recorded in `m_one'
+  //   goto end
+  // label:
+  //   res := 0             # This position is recorded in `m_zero'
+  // end:
+  //
+  // to like bellow
+  //
+  // begin:                   # Already generated.
+  //   (Code of info->m_stmt) # Already generated.
+  //   if y op z goto label
+  //   goto begin
+  // label:
+}
+\end{verbatim}
+We mentioned about the way of generating codes for
+{\tt{do-while}} statement at \ref{expr_e022}, where
+we said that it was better to distingish 
+the way for {\tt{var01}} and that for {\tt{log01}} in
+figure \ref{expr_e013}.
+
+For {\tt{log01}},
+the way of generating {\tt{do-while}} statement 3 address code
+becomes like bellow.
+\begin{verbatim}
+// Override virtual function
+void log01::do_code(do_stmt* info, to3ac* begin)
+{
+  // Replace the codes like bellow
+  //
+  //   if y1 op z1 goto label
+  //   if y2 op z2 goto label
+  //   ret := 1
+  //   goto end
+  // label:
+  //   ret := 0
+  // end:
+  //
+  // to like bellow
+  //
+  // begin:                   # Already generated
+  //   (Code of info->m_stmt) # Already generated
+  //   if y1 op z1 goto label
+  //   if y2 op z2 goto label
+  //   goto begin
+  // label:
+}
+\end{verbatim}
+For arithmetic constant and constant pointer,
+the way of generating {\tt{do-while}} statement 3 address code
+becomes like bellow.
+\begin{verbatim}
+template<class T> void
+common(constant<T>* ptr, do_stmt* info, to3ac* begin);
+
+// Override virtual function
+void constant<char>::do_code(do_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+...
+void constant<long double>::do_code(do_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+void constant<void*>::do_code(do_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+
+template<class T> void
+common(constant<T>* ptr, do_stmt* info, to3ac* begin)
+{
+  if ( !ptr->zero() ) {
+    // Generate jump to the loop head
+    goto3ac* go = new goto3ac;
+    go->m_to = begin;
+    begin->m_goto.push_back(go);
+    code.push_back(go);
+  }
+
+  // Update destination address according to break statement
+  ...
+}
+\end{verbatim}
+
+\subsection{{\tt{for}} statement}
+
+Considering the case replacing first expression to 
+some declaration,
+the syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct for_stmt : stmt, break_outer, continue_outer {
+  scope* m_scope;
+  vector<tac*> m_decl;  // Initializer code for some declaration
+  expr* m_expr1;
+  expr* m_expr2;
+  expr* m_expr3;
+  base* m_stmt;
+  ...
+  void gen()
+  {
+    struct x {
+      scope* m_org;
+       x(){ m_org = scope::current; }
+      ~x(){ scope::current = m_org; }
+    } x;
+    scope::current = m_scope;
+    if ( m_expr1 )
+      m_stmt1->gen();
+    else
+      copy(m_decl.begin(),m_decl.end(),back_inserter(code));
+    to3ac* begin = new to3ac;
+    code.push_back(begin);
+    var unused(0);
+    var* expr = m_expr2 ? m_expr2->gen() : &unused;
+    expr->for_code(this,begin);  // Call virtual function
+                                 // for generating the rest code.
+  }
+};
+\end{verbatim}
+{\tt{var::for\_code}} which generates most general codes
+becomes like bellow.
+\begin{verbatim}
+void var::for_code(for_stmt* info, to3ac* begin)
+{
+  goto3ac* goto2 = 0;
+  if ( m_type ) {
+    // The second expression is specified.
+    var* expr2 = rvalue();
+    expr2 = expr2->promotion();
+    const type* T = expr2->m_type;
+    if ( !T->scalar() ) {
+      // Not scalar. Error.
+    }
+    var* zero = integer::create(0);
+    zero = zero->cast(T);
+
+    // Generate code like if expression equals to zero then leave loop.
+    goto2 = new goto3ac(goto3ac::EQ,expr2,zero);
+    code.push_back(goto2);
+  }
+
+  break_stack.push(info);
+  continue_stack.push(info);
+  info->m_stmt->gen();
+  continue_stack.pop();
+  break_stack.pop();
+
+  to3ac* to3 = new to3ac;
+  code.push_back(to3);
+
+  // Update destination address according to continue statement
+  continue_stmt::outer& c = *info;
+  for_each(c.begin(),c.end(),bind2nd(ptr_fun(update),to3));
+  copy(c.begin(),c.end(),back_inserter(to3->m_goto));
+
+  if ( info->m_expr3 ) {
+    var* expr3 = info->m_expr3->gen();
+    expr3->rvalue();
+  }
+
+  // Generate code like jump to the loop head.
+  goto3ac* goto1 = new goto3ac;
+  code.push_back(goto1);
+  begin->m_goto.push_back(goto1);
+  goto1->m_to = begin;
+
+  to3ac* to2 = new to3ac;
+  code.push_back(to2);
+
+  // Update destination address according to break statement
+  break_stmt::outer& b = *info;
+  for_each(b.begin(),b.end(),bind2nd(ptr_fun(update),to2));
+  copy(b.begin(),b.end(),back_inserter(to2->m_goto));
+
+  if ( goto2 ) {
+    to2->m_goto.push_back(goto2);
+    goto2->m_to = to2;
+  }
+}
+\end{verbatim}
+For {\tt{var01}} in figure \ref{expr_e013},
+the way of generating {\tt{for}} statement 3 address code
+becomes like bellow.
+\begin{verbatim}
+// Override virtual function
+void var01::for_code(for_stmt* info, to3ac* begin)
+{
+  // Replace the codes like bellow
+  //
+  //   if y op z goto label
+  //   res := 1             # This position is recorded in `m_one'
+  //   goto end
+  // label:
+  //   res := 0             # This position is recorded in `m_zero'
+  // end:
+  //
+  // to like bellow
+  //
+  // begin:                     # Already generated.
+  //   (Code of info->m_expr1)  # Already generated.
+  //   or                       # Already generated.
+  //   (info->m_decl)           # Already generated.
+  //
+  //   if y op z goto label
+  //   (Code of info->m_stmt)
+  // cont:                      # Continue destination address
+  //   (Code of info->m_expr3)
+  // label:                     # Break destination address
+}
+\end{verbatim}
+For arithmetic constant and constant pointer,
+the way of generating {\tt{for}} statement 3 address code
+becomes like bellow.
+\begin{verbatim}
+template<class T> void
+common(constant<T>* ptr, for_stmt* info, to3ac* begin);
+
+// Override virtual function
+void constant<char>::for_code(for_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+...
+void constant<long double>::for_code(for_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+void constant<void*>::for_code(for_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+
+template<class T> void
+common(constant<T>* ptr, for_stmt* info, to3ac* begin)
+{
+  if ( !ptr->zero() ) {
+    // Generate code as if second expression is not specified
+    var unused(0);
+    unused.for_code(info,begin);
+  }
+  else {
+    int n = code.size();
+    info->m_stmt->gen();  // Once, gnerate 3 address code
+    code.resize(n);       // and discard them
+  }
+}
+\end{verbatim}
+
+\section{\tt{jump-statement}}
+
+\subsection{goto statement}
+\label{stmt_e001}
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct goto_stmt : stmt {
+  string m_label;
+  ...
+  void gen();
+};
+\end{verbatim}
+At \ref{stmt_e000}, we mentioned about defined and used label tables.
+Here, frontend references these tables.
+\begin{verbatim}
+void goto_stmt::gen()
+{
+  map<string,define>::const_iterator p = defined.find(m_label);
+  if ( p == defined.end() ) {
+    // Not defined label referenced.
+    goto3ac* go = new goto3ac;
+    code.push_back(go);
+    used[m_label].push_back(use(go,...));  // Insert into table
+    return;
+  }
+
+  // Already defined label referenced.
+  const label::define& d = p->second;
+  to3ac* to = d.m_to;
+  goto3ac* go = new goto3ac;
+  code.push_back(go);
+  to->m_goto.push_back(go); // Mark the label referencedy
+                            // by this `goto3ac'
+  go->m_to = to;
+}
+\end{verbatim}
+
+\subsection{continue statement}
+
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct continue_stmt : stmt {
+  ...
+  void gen()
+  {
+    if ( continue_stack.empty() ) {
+      // Outside loop. Error.
+    }
+    outer* top = continue_stack.top();
+    goto3ac* go = new goto3ac;
+    top->push_back(go);
+    code.push_back(go);
+  }
+};
+\end{verbatim}
+Here, {\tt{continue\_stack}} is the same
+with that of \ref{stmt_e004}. 
+
+\subsection{break statement}
+
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct break_stmt : stmt {
+  ...
+  void gen()
+  {
+    if ( break_stack.empty() ) {
+      // Outside switch statement or loop. Error.
+    }
+    outer* top = break_stack.top();
+    goto3ac* go = new goto3ac;
+    top->push_back(go);
+    code.push_back(go);
+  }
+};
+\end{verbatim}
+Here, {\tt{break\_stack}} is the same
+with that of \ref{stmt_e005}.
+
+\subsection{return statement}
+
+The syntax analisis tree can be represented like bellow.
+\begin{verbatim}
+struct return_stmt : stmt {
+  expr* m_expr;
+  ...
+  void gen();
+};
+\end{verbatim}
+The return statment is valid if and only if the assignment is valid for the
+expression.
+{\tt{return\_stmt::gen}} becomes like bellow.
+\begin{verbatim}
+void return_stmt::gen()
+{
+  var* expr = 0;
+  if ( m_expr ) {
+    expr = m_expr->eval();
+    expr = expr->rvalue();
+  }
+
+  // Get current function return type.
+  const type* T = fundef::current->m_usr->m_type;
+  typedef const func_type FUNC;
+  FUNC* func = static_cast<FUNC*>(T);
+  T = func->return_type();
+
+  if ( expr ) {
+    T = assign_impl::valid(T,expr);
+    if ( !T ) {
+      // Assignment is not valid. i.e. This return statemnet
+      // is not valid. Error.
+    }
+    expr = expr->cast(T);
+  }
+  else {
+    const type* vt = void_type::create();
+    if ( !T->compatible(vt) ) {
+      // The current function return type is not `void'.
+      // Error.
+    }
+  }
+  code.push_back(new return3ac(expr));
+}
+\end{verbatim}

@@ -1,0 +1,23 @@
+\documentclass{jreport}
+
+\usepackage{graphicx}
+\usepackage{makeidx}
+\usepackage{html}
+\usepackage{color}
+
+\newtheorem{QandA}{Ž¿–â}[chapter]
+\newtheorem{Example}{—á}[chapter]
+\def\Rubyt#1#2{
+  \mbox{$\displaystyle \mathop{\mbox{#1}}^{\mbox{\tiny #2}}$}
+}
+
+\def\MARU#1{\leavevmode \setbox0\hbox{$\bigcirc$}
+\copy0\kern-\wd0 \hbox to\wd0{\hfil{#1}\hfil}}
+
+\makeindex
+
+\begin{document}
+
+x$\typeout{=== Region from (point) to (mark) ===}
+
+\end{document}

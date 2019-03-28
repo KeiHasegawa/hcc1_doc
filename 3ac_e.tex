@@ -1,0 +1,400 @@
+\label{_3ac_e001}
+Chapter 8 of bibliography \cite{doragon} says that
+which kinds of 3 address code are necessary.
+Here, we'll think about the set of 3 address code for C compiler.
+3 address code can be coded like bellow structure.
+\index{3 address code@3 address code}
+\begin{verbatim}
+struct var;  // variable. entry of symbol table.
+
+struct tac {
+  var* x;
+  var* y;
+  var* z;
+  tac(var* xx, var* yy, var* z) : x(xx), y(yy), z(zz) {}
+};
+\end{verbatim}
+For examle, 3 address code of addition is
+derived from {\tt{tac}} like bellow.
+\begin{verbatim}
+struct add3ac : tac {
+  add3ac(var* x, var* y, var* z) : tac(x,y,z) {}
+};
+\end{verbatim}
+Chapter 8 of bibliography \cite{doragon} says that
+it's necessary to distinguish floating-point addition and
+integer addition. In our case, it's possible to distinguish
+them from {\tt {m\_type}} member of operand. i.e.
+\begin{verbatim}
+void f(add3ac* p)
+{
+  const type* T = p->x->m_type;
+  if ( T->real() )
+    ...  // floating-point addtion
+  else
+    ...  // integer addtion
+}
+\end{verbatim}
+So, we'll generate {\tt{add3ac}} for both floating-point addition
+and integer addition. Frontend must generate 3 address code
+of which operands make sense.
+
+When {\tt{function-definition}} is reduced, frontend generates
+3 address codes. For example, for a piece of program code
+\begin{verbatim}
+extern int printf(const char*, ...);
+
+int f(void)
+{
+   int a = 1;
+   a = (a + 2) * 3;
+   return printf("a = %d\n",a);
+}
+\end{verbatim}
+frontend generates 3 address codes like bellow.
+\begin{verbatim}
+f:
+        a := 1
+        t0 := a + 2
+        t1 := t0 * 3
+        a := t1
+        t2 := &"a = %d\n"
+        param t2
+        param a
+        t3 := call printf
+        return t3
+\end{verbatim}
+
+\begin{QandA}
+How do we use members of {\tt{tac}}?
+
+Answer : In optimization phase of 3 address codes, we want to
+investigate usage or definition of operands. See chapter 10 in
+bibliography \cite{doragon} about ud-chain and du-chain.
+{\tt{x}} denotes the definition and {\tt{y, z}} denote the usage.
+\end{QandA}
+
+\begin{QandA}
+I want add virtual function into {\tt{tac}} for generating target
+code. Is it OK?
+
+Answer : Sorry, but it isn't OK because frontend doesn't have to
+generate target code and frontend and backend must be build in
+implementation. I think you want to do like bellow.
+\begin{verbatim}
+struct tac {
+  ...
+  virtual void gen_target() const = 0;
+};
+
+void backend::tac2target(const vector<tac*>& code)
+{
+  // convert a 3 address code to some target codes automatically.
+  for_each(code.begin(),code.end(),mem_fun(&tac::gen_target));
+}
+\end{verbatim}
+Instead of above, you can code like bellow.
+\begin{verbatim}
+struct backend::table : map<string, void (*)(const tac*)> {
+  table()
+  {
+    (*this)[typeid(assign3ac).name()] = assign;
+    (*this)[typeid(add3ac).name()] = add;
+    (*this)[typeid(sub3ac).name()] = sub;
+    (*this)[typeid(mul3ac).name()] = mul;
+    ...
+  }
+};
+
+void backend::tac2target(const vector<tac*>& code)
+{
+  for_each(code.begin(),code.end(),gencode);
+}
+
+void backend::gencode(const tac* p)
+{
+  table[typeid(*p).name()](p);
+}
+
+void backend::assign(const tac* p)
+{
+  // Do the same work with assign::gen_target, please.
+}
+\end{verbatim}
+\end{QandA}
+
+\section{{\tt{x := y}}}
+
+A class coresspond to {\tt{x := y}} can be defined like bellow.
+\begin{verbatim}
+struct assign3ac : tac {
+  assign3ac(var* x, var* y) : tac(x,y,0) {}
+};
+\end{verbatim}
+The type of operand is one of scalar, structure or union. But not
+array because assignment of array is not defined in C language.
+Backend can distingish various assignments from the type of {\tt{x}}.
+Frontend must generates {\tt{x := y}} of which operands make sense.
+
+\section{{\tt{x := y * z}}}
+
+Multiplications in C language are defined for arithmetic type operands.
+So the type of {\tt{y}} or {\tt{z}} must be arithmetic.
+Backend can distingish various multiplications from the type of {\tt{x}}.
+Frontend must generates {\tt{x := y * z}} of which operands make sense.
+
+\section{{\tt{x := y / z}}}
+
+For divisions, samely as multiplications,
+backend can distingish various divisions from the type of {\tt{x}}.
+Frontend must generates {\tt{x := y / z}} of which operands make sense.
+
+\begin{QandA}
+For {\tt{x := y}}, is the type of {\tt{x}} {\it compatible}
+\index{compatible@compatible}
+with that of {\tt{y}}?  Samely, for 
+{\tt{x := y * z}} and {\tt{x := y / z}},
+the types of {\tt{x}}, {\tt{y}} and {\tt{z}} are
+{\it compatible} with each other?
+
+Answer : It's not, because the none-{\it compatible} condition
+is effective considering optimization. For example,
+\begin{verbatim}
+long int f(unsigned int a, int b){ return a * b; }
+\end{verbatim}
+For above function, fronend may generate 3 address codes
+like bellow.
+\begin{verbatim}
+f:
+    t0 := (unsigned int)b    # t0 : unsigned int
+    t1 := a * t0             # t1 : unsigned int
+    t2 := (long int)t1       # t2 : long int
+    return t2
+\end{verbatim}
+According to the specification of C language,
+arithmetic conversion and {\tt{return}} statement conversion
+will be ocurred, and above 3 address codes are correct.
+But frontend can know that converion from {\tt{int}} to {\tt{unsigned int}}
+is equivalent to assignment, and the existence of sign
+does not affect the resut of integer multiplication.
+And frontend can eliminate first conversion code.
+And more, if backend assigns the same space
+to {\tt {int}} and {\tt {long int}}, and if frontend can know
+that, third converions code can be eliminated.
+In this case, optimized 3 address codes are like bellow.
+\begin{verbatim}
+f:
+    t1 := a * b             # t1 : unsigned int
+    return t1
+\end{verbatim}
+But please take care if {\tt{f}} returns the result of division
+instead of multiplication. In this case, frontend cannot convert
+samely. Generally, not only operand size, but
+also the existence of sign affects the result of integer
+division. If backend assigns the same space
+to {\tt {int}} and {\tt {long int}}, and if frontend can know
+that, frontend can eliminate arithmetic conversion
+for division {\tt {int}} and {\tt {long int}}.
+\end{QandA}
+
+\section{{\tt{x := y \% z}}}
+
+Moduli are defined for integer operand.
+Backend can distingish various moduli from the type of {\tt{x}}.
+Frontend must generates {\tt{x := y \% z}} of which operands make sense.
+
+\section{{\tt{x := y + z}}}
+
+Additions are defined for arithmetic type operands.
+And also defined for pointer to object type
+and integer, and integer and pointer to object type.
+In this case, the result of addition is the pointer type.
+Frontend must generates {\tt{x := y + z}} of which operands make sense.
+
+\section{{\tt{x := y - z}}}
+
+Subtraction are defined for arithmetic type operands.
+And also defined for pointer to object type
+and integer. But not defined for integer and pointer to object type.
+And more, defined for pointer to object type and pointer that is
+compatible with it. The result type is {\tt{long int}}.
+
+\section{{\tt{x := y << z}}, {\tt{x := y >> z}}}
+
+Left shift first operand is integer type. Second operand is {\tt{int}}.
+Normal arithmetic conversion is not applied to left shift.
+The result type is the same type of first operand.
+
+Right shift operands are restricted samely with left shift.
+Normally, if first operand type has sign, right shift 
+is implemented as arithmetic shift. otherwise right shift
+is equal to logical shift. But it depends on implementation.
+
+\section{{\tt{x := y \& z}}, {\tt{x := y \^{} z}}, {\tt{x := y | z}}}
+
+Bitwise and, exclusive-or, or are defined for integer operands.
+
+\section{{\tt{x := -y}}, {\tt{x := \~{}y}}}
+
+Unary minus is defined for arithmetic operand.
+Bitwise-not is defined for integer operand.
+
+\section{{\tt{x := (type)y}}}
+
+The class according to 3 address code for type conversion is like
+bellow.
+\begin{verbatim}
+struct cast3ac : tac {
+  const type* m_type;   // contain type
+  cast3ac(var* x, var* y, const type* t) : tac(x,y,0), m_type(t) {}
+};  
+\end{verbatim}
+
+\section{{\tt{x := \&y}}}
+
+The type of {\tt{x}} is pointer to the type of {\tt{y}}.
+
+\begin{QandA}
+Unary {\tt{\&}} operator is defined for {\it lvalue}.
+Does {\tt {y}} have {\it lvalue} in {\tt{x := \&y}}?
+
+Answer : No. First, note that 3 address code is not
+equal to programming language C. For other programming
+languages, the same 3 addres code set described here
+can be used for implementing compiler. Frontend generates
+3 address code of which operands make sense, in every case.
+For medium variable {\tt{y}} which doesn't have {\it lvaue},
+compiler may generate {\tt{x := \&y}}.
+\end{QandA}
+
+\section{{\tt{x := *y}}}
+
+The type of {\tt{y}} must be pointer to object type,
+and the type of {\tt{x}} is the object type.
+Backend can distingish various {\tt{x := *y}} from the type of {\tt{x}}.
+
+\section{{\tt{*y := z}}}
+
+For both operand {\tt{y}} and {\tt{z}}, we regard source operands.
+The structure according this 3 address code is like bellow.
+\begin{verbatim}
+struct invladdr3ac : public tac {
+  invladdr3ac(var* y, var* z) : tac(0,y,z) {}
+};
+\end{verbatim}
+The type of {\tt{y}} must be pointer to object type,
+and the type of {\tt{z}} is the object type.
+Backend can distingish various {\tt{*y := z}} from the type of {\tt{z}}.
+
+\section{\tt{x[y] := z}, \tt{x := y[z]}}
+\label{3ac_e004}
+For {\tt{x[y] := z}}, the type of {\tt{x}} is aggregate, i.e.
+one of structure, union and array.
+Samely, for {\tt{x := y[z]}}, the type of {\tt{y}} is aggregate.
+These 3 addres codes may be
+generated for member reference or subscripting operator for array.
+Backend can distingish various {\tt{x[y] := z}} from the type of
+{\tt{z}}, and {\tt{x := y[z]}} from the type of {\tt{x}}.
+
+\section{{\tt{x := call y}}, {\tt{call y}}, {\tt{param y}}}
+
+\label{_3ac_e000} These are 3 address code for function call.
+The structure according to these are like bellow.
+\begin{verbatim}
+struct param3ac : tac {
+  param3ac(var* y) : tac(0,y,0) {}
+};
+
+struct call3ac : tac {
+  call3ac(var* x, var* y) : tac(x,y,0) {}
+};
+\end{verbatim}
+Frontend must generate {\tt{param}} or {\tt{param}}s continually
+which is or are referenced by {\tt{call}}, just before generating
+{\tt{call}}.
+
+For {\tt{x := call y}}, the type of {\tt{x}} is one
+of scalar, structure or union.
+The type of {\tt{y}} is function or pointer to function.
+If member {\tt{x}} is zero-pointer, it denotes that
+function return value is not used.
+
+For {\tt {param y}}, the type of {\tt{y}} is one of
+scalar, structure or union.
+
+Backend can distingish various 
+{\tt{x := call y}}, {\tt{call y}} or {\tt{param y}}
+from the type of operands.
+
+\section{{\tt{return}}, {\tt{return y}}}
+
+The type of {\tt{y}} is one of scalar, structure or union.
+
+\section{{\tt{goto label}}, {\tt{if y op z then goto label}}, {\tt{label:}}}
+\label{_3ac_e002}
+These represents unconditional jump, conditional jump and
+jump address,  respectively. The structure according to these are
+like bellow.
+\begin{verbatim}
+struct goto3ac : tac {
+  to3ac* m_to;  // contain jump address
+  enum op { NONE, EQ, NE, LE, GE, LT, GT };
+  op m_op;
+  goto3ac() : tac(0,0,0), m_to(0), m_op(NONE) {}
+  goto3ac(op op, var* y, var* z) : tac(0,y,z), m_to(0), m_op(op) {}
+};
+
+struct to3ac : tac {
+  vector<goto3ac*> m_goto;  // contain referencing jumps
+  to3ac() : tac(0,0,0) {}
+};
+\end{verbatim}
+Unconditional jump are treated as special case of conditional jump.
+Conditional jump operators (above {\tt{enum op}} member) 
+are the same meaning with 
+{\tt{==}}, {\tt{!=}}, {\tt{<=}}, {\tt{>=}}, {\tt{<}}, {\tt{>}}
+in C language.
+Frontend must generates these 3 address codes of which operands make sense.
+Backend can distingish various {\tt{if y $op$ z then goto label}}
+from the type of {\tt{y}}.
+
+\begin{QandA}
+Why is jump address implemented as 3 address code?
+
+Answer : In optimization phase, we'll want to invesigate
+the infomation described in above structure. So, for example,
+{\tt{string}} is not enough to express jump address.
+\end{QandA}
+
+\section{ {\tt{x := va\_start y}}, {\tt{x := va\_arg y, type}}, {\tt{va\_end3ac}}}
+
+In some implementations of backend,
+these are implemented as C preprocessor macro.
+But in other implementations, it's difficult to implement just using
+C preprocessor macro. If backend can generate target code
+for these 3 address code, it is simple.
+
+\section{alloca x, y}
+\label{_3ac_e003}
+Variable length array in specification ISO C. 
+\begin{verbatim}
+void f(int n)
+{
+  int a[n];  /* variable length arrray */
+  ...
+}
+\end{verbatim}
+3 address code for this program is like bellow
+\begin{verbatim}
+f:
+    t0 := 4 * n    # assume sizeof(int) = 4
+    alloca a, t0   # assign t0 bytes memory for `a'
+    ...
+\end{verbatim}
+
+\section{asm ``string''}
+
+{\tt{asm-declaration}} is in ISO C++ but not in C.
+Not necessary but we can change grammer.
+
+

@@ -1,0 +1,1052 @@
+\label{stmt006}
+この章では文に対してどのように 3 番地コードを生成すればよいかを
+中心に議論していきます. \ref{expr000} 章では式に対するインターフェース
+をクラス {\tt{expr}} で規定し, 上向き構文解析の過程で
+式に対する解析木を {\tt{expr}} で表現しましたが, 文に対しても
+同様にインターフェースを規定します.
+\begin{verbatim}
+struct stmt {
+  virtual void gen() = 0;  // 文に対する 3 番地コードを生成します.
+  virtual ~stmt(){}
+};
+\end{verbatim}
+そして文法記号 {\tt{function-definition}} が還元されるときに,
+以下のように 3 番地コードの生成を行なうことにします.
+\begin{verbatim}
+%{
+/* yacc のプログラム */
+vector<_3ac*> code;
+
+struct comp_stmt : stmt {
+  ...
+  void gen();  // 純粋仮想函数を上書き
+};
+%}
+
+%%
+
+function_definition
+  : function_header compound_statement
+    { function_definition($2); }
+  ;
+...
+
+%%
+
+void function_definition(comp_stmt* cs)
+{
+  cs->gen();  // グローバルなコンテナ code に結果が求められます.
+  ...
+}
+\end{verbatim}
+
+\section{{\tt{labeled-statement}}}
+
+\subsection{ラベル文}
+\label{stmt000}
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct label_stmt : stmt {
+  string m_label;
+  stmt* m_stmt;
+  ...
+  void gen();
+};
+\end{verbatim}
+ラベルの定義の後に {\tt{goto}} 文による参照,
+ラベルの定義の前に {\tt{goto}} 文による参照を考慮すれば,
+以下のように定義と参照のテーブルを作成しておくとよいことになります.
+\begin{verbatim}
+struct define {
+  ...
+  to3ac* m_to;
+};
+
+map<string, define> defined;  // 定義されているラベル
+
+struct use {
+  ...
+  goto3ac* m_goto;
+};
+
+map<string, use> used;  // 定義なしで使用されているラベル
+\end{verbatim}
+これらのテーブルを参照して, {\tt{label\_stmt::gen}} は以下のようになりま
+す.
+\begin{verbatim}
+void label_stmt::gen()
+{
+  map<string, define>::const_iterator p = defined.find(m_label);
+  if ( p != defined.end() ) {
+    // ラベルが多重定義されているのでエラーとなります.
+  }
+
+  to3ac* to = new to3ac;
+  code.push_back(to);
+  defined[m_label].m_to = to;  // 定義されているラベルに追加します.
+
+  map<string, vector<use> >::iterator p = used.find(m_label);
+  if ( p != used.end() ) {
+    // 対応するすべての goto3ac の情報を書き替えます.
+    const vector<use>& v = p->second;
+    for_each(v.begin(),v.end(),bind2nd(ptr_fun(decide),to));
+    used.erase(p);
+  }
+  m_stmt->gen();
+}
+\end{verbatim}
+\ref{stmt001} も参照して下さい.
+
+\subsection{{\tt{case}} 文}
+\label{stmt002}
+コード生成の方法は {\tt{switch}} 文のコード生成に依存することになります.
+ここでは参考文献 \cite{doragon} 8.5 Switch 文 ( 図 8.27 )
+と同じようにコード生成するようにしました. 但し参考文献 \cite{doragon} で
+紹介されている方法は, 文の後, C 言語でいう {\tt{break}} が {\tt{case}}
+文の後で必ず実行されるこ
+とと {\tt{default}} がすべての {\tt{case}} 文の最後に置か
+れることが前提とされているので, その部分については変更が必要になります.
+
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct case_stmt : stmt {
+  expr* m_expr;
+  stmt* m_stmt;
+  ...
+  void gen();
+};
+\end{verbatim}
+{\tt{case}} は {\tt{switch}} 文の内側に現れる必要があるので
+{\tt{switch}} 文の情報を保持しておくスタックを用意しておきます.
+\begin{verbatim}
+struct case_info {
+  ...
+  var* m_expr;
+  to3ac* m_to;
+};
+
+struct switch_info {
+  ...
+  vector<case_info> m_cases;
+};
+
+vector<switch_info*> switch_stack;
+
+void case_stmt::gen()
+{
+  var* expr = m_expr->gen();
+  expr = expr->rvalue();
+  if ( !expr->isconstant() ) {
+    // 定数でないのでエラーとなります.
+  }
+  const type* T = expr->m_type;
+  if ( !T->integer() ) {
+    // 整定数でないのでエラーとなります.
+  }
+  if ( switch_stack.empty() ) {
+    // switch 文の外側なのでエラーとなります.
+  }
+  switch_info* top = switch_stack.top();
+  vector<case_info>& v = top->m_cases;
+  vector<case_info>::iterator p =
+    find_if(v.begin(),v.end(),bind2nd(ptr_fun(cmp),expr));
+  if ( p != v.end() ) {
+    // case ラベルが重複しているのでエラーとなります.
+  }
+  to3ac* to = new to3ac;
+  code.push_back(to);
+  v.push_back(case_info(expr,to,...));
+  return m_stmt->gen();
+}
+\end{verbatim}
+
+\subsection{{\tt{default}} 文}
+\label{stmt003}
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct default_stmt : stmt {
+  stmt* m_stmt;
+  ...
+  void gen();
+};
+\end{verbatim}
+\ref{stmt002} で述べた {\tt{case}} 文と同様に, {\tt{switch}} 文の内側に
+現れる必要があります. \ref{stmt002} で使用した
+{\tt{switch}} 文の情報を保持しておくスタックを参照します.
+\begin{verbatim}
+struct default_info {
+  ...
+  to3ac* m_to; 
+};
+
+struct switch_info {
+  ...
+  default_info m_default;
+};
+
+void default_stmt::gen()
+{
+  if ( switch_stack.empty() ) {
+    // switch 文の外側なのでエラーとなります.
+  }
+
+  switch_info* top = switch_stack.top();
+  if ( top->m_default.m_to ) {
+    // 既に default 文がこの switch 文にあるのでエラーとなります.
+  }
+
+  to3ac* to = new to3ac;
+  code.push_back(to);
+  top->m_default.m_to = to;
+
+  return m_stmt->gen();
+}
+\end{verbatim}
+
+\section{{\tt{compound-statement}}}
+
+参考文献 \cite{ISO} の文法では宣言と文が混在できるようになっています.
+静的でない変数に対して, 宣言における初期化指定子におけるコード
+は出現順序に即している必要があります. すなわち, その宣言の前までの
+宣言の初期化指定子のコードと文に対するコードの後でなくてはならず, その宣
+言に
+続く
+宣言の初期化指定子のコードとと文に対するコードの前でなくてはなりません.
+
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct comp_stmt : stmt {
+  typedef pair<vector<tac*>, stmt*> item;
+  vector<item> m_items;
+  scope* m_scope;
+  ...
+  void gen();
+};
+\end{verbatim}
+{\tt{item::first}} は初期化指定子に対するコードに相当します.
+{\tt{comp\_stmt::gen}} は以下のようになります.
+\begin{verbatim}
+void subr(const item& i)
+{
+  if ( stmt* s = i.second )
+    s->gen();
+  else {
+    vector<tac*>& v = i.first;
+    copy(v.begin(),v.end(),back_inserter(code));
+  }
+}
+
+void comp_stmt::gen()
+{
+  struct x {
+    scope* m_org;
+     x(){ m_org = scope::current; }
+    ~x(){ scope::current = m_org;  }
+  } x;
+  scope::current = m_scope;
+  for_each(m_items.begin(),m_items.end(),subr);
+}
+\end{verbatim}
+
+\section{{\tt{exrepssion-statement}}}
+
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct expr_stmt : stmt {
+  expr* m_expr;
+  ...
+  void gen()
+  {
+    var* expr = m_expr->eval();
+    expr = expr->rvalue();
+    const type* T = expr->m_type;
+    if ( T が不完全タグ型 ) {
+      // エラーになります.
+    }
+  }
+};
+\end{verbatim}
+
+\section{{\tt{selection-statement}}}
+
+\subsection{{\tt{if}} 文}
+
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct if_stmt : stmt {
+  expr* m_expr;
+  stmt* m_stmt1;
+  stmt* m_stmt2;  // else に続く文
+  ...
+  void gen()
+  {
+    var* expr = m_expr->gen();
+    expr->if_code(this);  // 仮想函数呼び出し
+  }
+};
+\end{verbatim}
+\ref{expr016} で述べたように式を評価した結果に依存して
+{\tt{if}} 文に対するコード生成をします. 最も一般的な処理をする
+{\tt{var::if\_code}} は以下のようになります.
+\begin{verbatim}
+void var::if_code(if_stmt* info)
+{
+  var* expr = rvalue();
+  const type* T = expr->m_type;
+  if ( !T->scalar() ) {
+    // スカラーでない式が指定されているのでエラーとなります.
+  }
+  T = T->promotion();
+  expr = expr->cast(T);
+  var* zero = integer::create(0);
+  zero = zero->cast(T);
+
+  // 式がゼロならばジャンプするコードを生成します.
+  goto3ac* goto1 = new goto3ac(goto3ac::EQ,expr,zero);
+  code.push_back(goto1);
+  info->m_stmt1->gen();
+  if ( !info->m_stmt2 ) {
+    // else なしの場合
+    to3ac* to1 = new to3ac;
+    code.push_back(to1);
+    to1->m_goto.push_back(goto1);
+    goto1->m_to = to1;
+    return;
+  }
+
+  // else ありの場合
+  goto3ac* goto2 = new goto3ac;
+  code.push_back(goto2);
+  to3ac* to1 = new to3ac;
+  code.push_back(to1);
+  to1->m_goto.push_back(goto1);
+  goto1->m_to = to1;
+  info->m_stmt2->gen();
+  to3ac* to2 = new to3ac;
+  code.push_back(to2);
+  to2->m_goto.push_back(goto2);
+  goto2->m_to = to2;
+}
+\end{verbatim}
+図 \ref{expr013} における {\tt{var01}} は
+結果が 0 か 1 かのいずれかになりますが,  {\tt{var01}} に対する
+{\tt{if}} 文のコード生成は以下のようになります.
+\begin{verbatim}
+void var01::if_code(if_stmt* info)  // 仮想函数の上書き
+{
+  //   if y op z goto label
+  //   res := 1             # メンバ m_one に場所を記録している
+  //   goto end
+  // label:
+  //   res := 0             # メンバ m_zero に場所を記録している
+  // end:
+  //
+  // のようなコード列を
+  //
+  //   if y op z goto label
+  //   info->m_stmt1 のコード
+  //   goto end
+  // label:
+  //   info->m_stmt2 のコード
+  // end:
+  //
+  // のようなコード列に書き替えます.
+}
+\end{verbatim}
+算術定数, ポインタ定数に対する {\tt{if}} 文のコード生成は
+以下のように, いずれか一方の文のみが直接のコードとして
+出力されます. 他方を評価するのはエラーがあれば検出する
+必要があるからです.
+\begin{verbatim}
+template<class T> void common(constant<T>* ptr, if_stmt* info);
+
+// 仮想函数の上書き
+void constant<char>::if_code(if_stmt* info){ common(this,info); }
+...
+void constant<long double>::if_code(if_stmt* info){ common(this,info); }
+void constant<void*>::if_code(if_stmt* info){ common(this,info); }
+
+template<class T> void common(constant<T>* ptr, if_stmt* info)
+{
+  if ( ptr->zero() ) {
+    int n = code.size();
+    info->m_stmt1->gen();  // コード生成して
+    code.resize(n);        // 捨てます
+    if ( info->m_stmt2 )
+      info->m_stmt2->gen();
+  }
+  else {
+    info->m_stmt1->gen();
+    if ( info->m_stmt2 ) {
+      int n = code.size();
+      info->m_stmt2->gen();  // コード生成して
+      code.resize(n);        // 捨てます
+    }
+  }
+}
+\end{verbatim}
+
+\subsection{{\tt{switch}} 文}
+\label{stmt005}
+\ref{stmt002} では 「{\tt{case}} 文」, \ref{stmt003} では
+「{\tt{default}} 文」に対してどのように 3 番地コードを生成するかについて
+述べました. そこではジャンプ先を 3 番地コード {\tt{to3ac}} で
+生成しておき, 外側の {\tt{switch}} 文に生成した {\tt{to3ac}} と,
+「{\tt{case}} 文」の場合は式の値を保持しておくようにしていました.
+
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct break_outer : vector<goto3ac*> {};
+
+struct switch_stmt : stmt, break_outer {
+  expr* m_expr;
+  stmt* m_stmt;
+  vector<case_info> m_cases;
+  default_info m_default;
+  ...
+  void gen();
+};
+\end{verbatim}
+{\tt{break\_outer}} から派生している理由は, {\tt{break}} 文のジャンプ先
+のアドレスが決まったときに更新するためです.
+\begin{verbatim}
+stack<break_outer*> break_stack;
+
+void switch_stmt::gen()
+{
+  var* expr = m_expr->eval();
+  expr = expr->rvalue();
+  const type* T = expr->m_type;
+  if ( !T->integer() ) {
+    // 整数型でないのでエラーとなります.
+  }
+  goto3ac* start = new goto3ac;
+  code.push_back(start);
+  switch_stack.push(this);
+  break_stack.push(this);
+  m_stmt->gen();
+  break_stack.pop();
+  switch_stack.pop();
+  goto3ac* last = new goto3ac;
+  code.push_back(last);
+  to3ac* to1 = new to3ac;
+  code.push_back(to1);
+  to1->m_goto.push_back(start);
+  start->m_to = to1;
+
+  // すべての case 文について条件ジャンプ命令を出力します.
+  for_each(m_cases.begin(),m_cases.end(),bind1st(ptr_fun(gencode),expr));
+
+  if ( to3ac* to = m_default.m_to ) {
+    // default 文があるので上で生成したすべての条件ジャンプに
+    // 該当しない場合は default にジャンプします.
+    goto3ac* go = new goto3ac;
+    code.push_back(go);
+    to->m_goto.push_back(go);
+    go->m_to = to;
+  }
+
+  to3ac* to2 = new to3ac;
+  code.push_back(to2);
+
+  // switch から抜ける break 文のジャンプ先をここで決めます.
+  for_each(begin(),end(),bind2nd(ptr_fun(update),to2));
+  copy(begin(),end(),back_inserter(to2->m_goto));
+
+  to2->m_goto.push_back(last);
+  last->m_to = to2;
+}
+\end{verbatim}
+例えば, 以下のようなプログラム
+\begin{verbatim}
+void f(int n)
+{
+  switch ( n ) {
+  case 0: 文 0
+  case 2: 文 2
+  default: 文 d 
+  case 1: 文 1
+  }
+}
+\end{verbatim}
+に対して出力される 3 番地コードは
+以下のようになります.
+\begin{verbatim}
+f:
+  goto to1  # switch_stmt::gen の start に相当する goto3ac です.
+label0:
+  文 0 のコード
+label2:
+  文 2 のコード
+labeld:
+  文 d のコード
+label1:
+  文 1 のコード
+  goto to2  # switch_stmt::gen の last に相当する goto3ac です.
+to1:
+  if n == 0 goto label0
+  if n == 2 goto label2
+  if n == 1 goto label1
+  goto labeld
+to2:  # switch 文に現れた break 文のジャンプ先がこのラベルです.
+\end{verbatim}
+
+\section{{\tt{iteration-statement}}}
+
+\subsection{{\tt{while}} 文}
+\label{stmt004}
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct continue_outer : vector<goto3ac*> {};
+
+struct while_stmt : stmt, break_outer, continue_outer {
+  expr* m_expr;
+  stmt* m_stmt;
+  ...
+  void gen()
+  {
+    to3ac* begin = new to3ac;
+    code.push_back(begin);
+    var* expr = m_expr->eval();
+    expr->while_code(this,begin);  // 仮想函数呼び出し
+  }
+};
+\end{verbatim}
+{\tt{while}} 文は {\tt{switch}} 文と同様の
+理由から {\tt{break\_outer}} から派生しています.
+また {\tt{continue}} 文のジャンプ先
+のアドレスが決まったときに更新するため,
+{\tt{continue\_outer}} からも派生しています.
+
+{\tt{if}} 文のコード生成と同様に, 式の結果に対して
+仮想函数 {\tt{while\_code}} を呼び出し, {\tt{while}} 文の
+コード生成をします. 最も一般的な処理をする
+{\tt{var::while\_code}} は以下のようになります.
+\begin{verbatim}
+stack<continue_outer*> continue_stack;
+
+void var::while_code(while_stmt* info, to3ac* begin)
+{
+  var* expr = rvalue();
+  expr = expr->promotion();
+  const type* T = expr->m_type;
+  if ( !T->scalar() ) {
+    // スカラ型でないのでエラーとなります.
+  }
+  var* zero = integer::create(0);
+  zero = zero->cast(T);
+
+  // 式の結果がゼロならばループを抜けるようなコードを生成します.
+  goto3ac* goto2 = new goto3ac(goto3ac::EQ,expr,zero);
+  code.push_back(goto2);
+
+  break_stack.push(info);
+  continue_stack.push(info);
+  info->m_stmt->gen();
+  continue_stack.pop();
+  break_stack.pop();
+
+  // continue 文のジャンプ先を更新します.
+  continue_outer& c = *info;
+  for_each(c.begin(),c.end(),bind2nd(ptr_fun(update),begin));
+  copy(c.begin(),c.end(),back_inserter(begin->m_goto));
+
+  // ループの最後でループの先頭へのジャンプします.
+  goto3ac* goto1 = new goto3ac;
+  code.push_back(goto1);
+  begin->m_goto.push_back(goto1);
+  goto1->m_to = begin;
+
+  to3ac* end = new to3ac;
+  code.push_back(end);
+  end->m_goto.push_back(goto2);
+  goto2->m_to = end;
+
+  // break 文のジャンプ先を更新します.
+  break_stmt::outer& b = *info;
+  for_each(b.begin(),b.end(),bind2nd(ptr_fun(update),end));
+  copy(b.begin(),b.end(),back_inserter(end->m_goto));
+}
+\end{verbatim}
+図 \ref{expr013} における {\tt{var01}} に対する {\tt{while}} 文の
+コード生成は次のようになります.
+\begin{verbatim}
+// 仮想函数の上書き
+void var01::while_code(while_stmt* info, to3ac* begin)
+{
+  //   if y op z goto label
+  //   res := 1             # メンバ m_one に場所を記録している
+  //   goto end
+  // label:
+  //   res := 0             # メンバ m_zero に場所を記録している
+  // end:
+  //
+  // のようなコード列を
+  //
+  // begin:
+  //   if y op z goto label
+  //   info->m_stmt のコード
+  //   goto begin
+  // label:
+  //
+  // のようなコード列に書き替えます.
+}
+\end{verbatim}
+算術定数, ポインタ定数に対する {\tt{while}} 文のコード生成は
+以下のように非ゼロの場合コード生成します. ゼロの場合は
+文に対するコード生成を行ない, 結果を捨てます.
+文にエラーがあれば検出する必要があるからです.
+\begin{verbatim}
+template<class T> void
+common(constant<T>* ptr, while_stmt* info, to3ac* begin);
+
+// 仮想函数の上書き
+void constant<char>::while_code(while_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+...
+void constant<long double>::while_code(while_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+void constant<void*>::while_code(while_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+
+template<class T> void
+common(constant<T>* ptr, while_stmt* info, to3ac* begin)
+{
+  if ( !ptr->zero() ) {
+    // var::while_code と同様ですが, 無条件にループの
+    // 中に入るようにします.
+  }
+  else {
+    int n = code.size();
+    info->m_stmt->gen();  // コード生成して
+    code.resize(n);       // 結果を捨てます.
+  }
+}
+\end{verbatim}
+
+\subsection{{\tt{do-while}} 文}
+
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct do_stmt : stmt, break_outer, continue_outer {
+  stmt* m_stmt;
+  expr* m_expr;
+  ...
+  void gen()
+  {
+    to3ac* begin = new to3ac;
+    code.push_back(begin);
+    break_stack.push(this);
+    continue_stack.push(this);
+    m_stmt->gen();
+    continue_stack.pop();
+    break_stack.pop();
+    to3ac* to2 = new to3ac;
+    code.push_back(to2);
+    continue_stmt::outer& c = *this;
+
+    // continue 文のジャンプ先のみを更新します.
+    for_each(c.begin(),c.end(),bind2nd(ptr_fun(update),to2));
+    copy(c.begin(),c.end(),back_inserter(to2->m_goto));
+
+    var* expr = m_expr->gen();
+    expr->do_code(this,begin);  // 仮想函数呼び出し.
+                                // 残りのコードを生成します.
+  }
+};
+\end{verbatim}
+{\tt{while}} 文と同様に {\tt{do\_stmt}} は
+{\tt{break\_outer}} と {\tt{continue\_outer}} からも派生しています.
+また式の結果に対して
+仮想函数 {\tt{do\_code}} を呼び出し, {\tt{do-while}} 文の
+残りのコード生成をします. 最も一般的な処理をする
+{\tt{var::do\_code}} は以下のようになります.
+\begin{verbatim}
+void var::do_code(do_stmt* info, to3ac* begin)
+{
+  var* expr = rvalue();
+  expr = expr->promotion();
+  const type* T = expr->m_type;
+  if ( !T->scalar() ) {
+    // スカラ型でないのでエラーとなります.
+  }
+  var* zero = integer::create(0);
+  zero = zero->cast(T);
+
+  // 非ゼロならばループの先頭にジャンプするよう
+  // に 3 番地コードを生成します.
+  goto3ac* go = new goto3ac(goto3ac::NE,expr,zero);
+  code.push_back(go);
+  begin->m_goto.push_back(go);
+  go->m_to = begin;
+
+  to3ac* end = new to3ac;
+  code.push_back(end);
+
+  // break 文のジャンプ先アドレスを更新します.
+  break_stmt::outer& b = *info;
+  for_each(b.begin(),b.end(),bind2nd(ptr_fun(update),end));
+  copy(b.begin(),b.end(),back_inserter(end->m_goto));
+}
+\end{verbatim}
+図 \ref{expr013} における {\tt{var01}} に対する {\tt{do-while}} 文の
+残りのコード生成は次のようになります.
+\begin{verbatim}
+// 仮想函数の上書き
+void var01::do_code(do_stmt* info, to3ac* begin)
+{
+  //   if y op z goto label
+  //   res := 1             # メンバ m_one に場所を記録している
+  //   goto end
+  // label:
+  //   res := 0             # メンバ m_zero に場所を記録している
+  // end:
+  //
+  // のようなコード列を
+  //
+  // begin:                   # ここは既に出力されいてる
+  //   info->m_stmt のコード  # ここは既に出力されいてる
+  //   if y op z goto label
+  //   goto begin
+  // label:
+  //
+  // のようなコード列に書き替えます.
+}
+\end{verbatim}
+\ref{expr022} で {\tt{do-while}} に対する
+コード生成を 図 \ref{expr013} における {\tt{var01}} と {\tt{log01}} とで
+分けることを簡単に述べましたが,
+ {\tt{log01}} に対する {\tt{do-while}} 文の
+残りのコード生成は次のようになります.
+\begin{verbatim}
+// 仮想函数の上書き
+void log01::do_code(do_stmt* info, to3ac* begin)
+{
+  //   if y1 op z1 goto label
+  //   if y2 op z2 goto label
+  //   ret := 1
+  //   goto end
+  // label:
+  //   ret := 0
+  // end:
+  //
+  // のようなコード列を
+  //
+  // begin:                   # ここは既に出力されいてる
+  //   info->m_stmt のコード  # ここは既に出力されいてる
+  //   if y1 op z1 goto label
+  //   if y2 op z2 goto label
+  //   goto begin
+  // label:
+  //
+  // のようなコード列に書き替えます.
+}
+\end{verbatim}
+算術定数, ポインタ定数に対する {\tt{do-while}} 文のコード生成は
+以下のように非ゼロの場合のみ, ループの先頭にジャンプするコードを
+追加で生成します.
+\begin{verbatim}
+template<class T> void
+common(constant<T>* ptr, do_stmt* info, to3ac* begin);
+
+// 仮想函数の上書き
+void constant<char>::do_code(do_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+...
+void constant<long double>::do_code(do_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+void constant<void*>::do_code(do_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+
+template<class T> void
+common(constant<T>* ptr, do_stmt* info, to3ac* begin)
+{
+  if ( !ptr->zero() ) {
+    goto3ac* go = new goto3ac;
+    go->m_to = begin;
+    begin->m_goto.push_back(go);
+    code.push_back(go);
+  }
+
+  // break 文のジャンプアドレスを更新します.
+  ...
+}
+\end{verbatim}
+
+\subsection{{\tt{for}} 文}
+
+第 1 式の代わりに宣言を書いた場合も考慮すると,
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct for_stmt : stmt, break_outer, continue_outer {
+  scope* m_scope;
+  vector<tac*> m_decl;  // 変数の宣言に対する初期化コード
+  expr* m_expr1;
+  expr* m_expr2;
+  expr* m_expr3;
+  base* m_stmt;
+  ...
+  void gen()
+  {
+    struct x {
+      scope* m_org;
+       x(){ m_org = scope::current; }
+      ~x(){ scope::current = m_org; }
+    } x;
+    scope::current = m_scope;
+    if ( m_expr1 )
+      m_stmt1->gen();
+    else
+      copy(m_decl.begin(),m_decl.end(),back_inserter(code));
+    to3ac* begin = new to3ac;
+    code.push_back(begin);
+    var unused(0);
+    var* expr = m_expr2 ? m_expr2->gen() : &unused;
+    expr->for_code(this,begin);  // 仮想函数呼び出し
+                                 // 残りのコードを生成します.
+  }
+};
+\end{verbatim}
+最も一般的な処理をする
+{\tt{var::for\_code}} は以下のようになります.
+\begin{verbatim}
+void var::for_code(for_stmt* info, to3ac* begin)
+{
+  goto3ac* goto2 = 0;
+  if ( m_type ) {
+    // 第 2 式が指定されている.
+    var* expr2 = rvalue();
+    expr2 = expr2->promotion();
+    const type* T = expr2->m_type;
+    if ( !T->scalar() ) {
+      // スカラ型でないのでエラーとなります.
+    }
+    var* zero = integer::create(0);
+    zero = zero->cast(T);
+
+    // ゼロならばループを抜けるコードを生成します.
+    goto2 = new goto3ac(goto3ac::EQ,expr2,zero);
+    code.push_back(goto2);
+  }
+
+  break_stack.push(info);
+  continue_stack.push(info);
+  info->m_stmt->gen();
+  continue_stack.pop();
+  break_stack.pop();
+
+  to3ac* to3 = new to3ac;
+  code.push_back(to3);
+
+  // continue 文のジャンプアドレスを更新します.
+  continue_stmt::outer& c = *info;
+  for_each(c.begin(),c.end(),bind2nd(ptr_fun(update),to3));
+  copy(c.begin(),c.end(),back_inserter(to3->m_goto));
+
+  if ( info->m_expr3 ) {
+    var* expr3 = info->m_expr3->gen();
+    expr3->rvalue();
+  }
+
+  // ループの先頭にジャンプするコードを生成します.
+  goto3ac* goto1 = new goto3ac;
+  code.push_back(goto1);
+  begin->m_goto.push_back(goto1);
+  goto1->m_to = begin;
+
+  to3ac* to2 = new to3ac;
+  code.push_back(to2);
+
+  // break 文のジャンプアドレスを更新します.
+  break_stmt::outer& b = *info;
+  for_each(b.begin(),b.end(),bind2nd(ptr_fun(update),to2));
+  copy(b.begin(),b.end(),back_inserter(to2->m_goto));
+
+  if ( goto2 ) {
+    to2->m_goto.push_back(goto2);
+    goto2->m_to = to2;
+  }
+}
+\end{verbatim}
+図 \ref{expr013} における {\tt{var01}} に対する {\tt{for}} 文の
+残りのコード生成は次のようになります.
+\begin{verbatim}
+// 仮想函数の上書き
+void var01::for_code(for_stmt* info, to3ac* begin)
+{
+  //   if y op z goto label
+  //   res := 1             # メンバ m_one に場所を記録している
+  //   goto end
+  // label:
+  //   res := 0             # メンバ m_zero に場所を記録している
+  // end:
+  //
+  // のようなコード列を
+  //
+  // begin:                     # ここは既に出力されいてる
+  //   info->m_expr1 のコード   # ここは既に出力されいてる
+  //   もしくは                 # ここは既に出力されいてる
+  //   宣言に対する初期化コード # ここは既に出力されいてる
+  //
+  //   if y op z goto label
+  //   info->m_stmt のコード
+  // cont:                      # continue のジャンプ先
+  //   info->m_expr3 のコード
+  // label:                     # break のジャンプ先
+  //
+  // のようなコード列に書き替えます.
+}
+\end{verbatim}
+算術定数, ポインタ定数に対する {\tt{for}} 文のコード生成は
+以下のように非ゼロの場合, 第 2 式が指定されていないとして
+コード生成します. ゼロの場合は文に対してコード生成し, その
+結果を捨てることにします.
+\begin{verbatim}
+template<class T> void
+common(constant<T>* ptr, for_stmt* info, to3ac* begin);
+
+// 仮想函数の上書き
+void constant<char>::for_code(for_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+...
+void constant<long double>::for_code(for_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+void constant<void*>::for_code(for_stmt* info, to3ac* begin)
+{ common(this,info,begin); }
+
+template<class T> void
+common(constant<T>* ptr, for_stmt* info, to3ac* begin)
+{
+  if ( !ptr->zero() ) {
+    var unused(0);
+    unused.for_code(info,begin);
+  }
+  else {
+    int n = code.size();
+    info->m_stmt->gen();
+    code.resize(n);
+  }
+}
+\end{verbatim}
+
+\section{\tt{jump-statement}}
+
+\subsection{goto 文}
+\label{stmt001}
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct goto_stmt : stmt {
+  string m_label;
+  ...
+  void gen();
+};
+\end{verbatim}
+\ref{stmt000} でラベルをどのように管理するかについて
+述べました. ここで管理テーブルを参照します.
+\begin{verbatim}
+void goto_stmt::gen()
+{
+  map<string,define>::const_iterator p = defined.find(m_label);
+  if ( p == defined.end() ) {
+    // 定義されていないラベルの参照
+    goto3ac* go = new goto3ac;
+    code.push_back(go);
+    used[m_label].push_back(use(go,...));  // テーブルに追加
+    return;
+  }
+
+  // 既に定義されているラベルの参照
+  const label::define& d = p->second;
+  to3ac* to = d.m_to;
+  goto3ac* go = new goto3ac;
+  code.push_back(go);
+  to->m_goto.push_back(go); // ラベルへの参照に追加します.
+  go->m_to = to;
+}
+\end{verbatim}
+
+\subsection{continue 文}
+
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct continue_stmt : stmt {
+  ...
+  void gen()
+  {
+    if ( continue_stack.empty() ) {
+      // ループの外側なのでエラーです.
+    }
+    outer* top = continue_stack.top();
+    goto3ac* go = new goto3ac;
+    top->push_back(go);
+    code.push_back(go);
+  }
+};
+\end{verbatim}
+ここで {\tt{continue\_stack}} は \ref{stmt004} 等で
+参照しているものと同じものであるとします.
+
+\subsection{break 文}
+
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct break_stmt : stmt {
+  ...
+  void gen()
+  {
+    if ( break_stack.empty() ) {
+      // switch 文, ループの外側でなのでエラーです.
+    }
+    outer* top = break_stack.top();
+    goto3ac* go = new goto3ac;
+    top->push_back(go);
+    code.push_back(go);
+  }
+};
+\end{verbatim}
+ここで {\tt{break\_stack}} は \ref{stmt005} 等で
+参照しているものと同じものであるとします.
+
+\subsection{return 文}
+
+構文解析木は以下のようなクラスで表現できます.
+\begin{verbatim}
+struct return_stmt : stmt {
+  expr* m_expr;
+  ...
+  void gen();
+};
+\end{verbatim}
+函数から値を返せるかどうかは, 代入が定義されているかどうかに帰着します.
+{\tt{return\_stmt::gen}} は以下のようになります.
+\begin{verbatim}
+void return_stmt::gen()
+{
+  var* expr = 0;
+  if ( m_expr ) {
+    expr = m_expr->eval();
+    expr = expr->rvalue();
+  }
+
+  // 函数の戻り値の型を取得します.
+  const type* T = fundef::current->m_usr->m_type;
+  typedef const func_type FUNC;
+  FUNC* func = static_cast<FUNC*>(T);
+  T = func->return_type();
+
+  if ( expr ) {
+    T = assign_impl::valid(T,expr);
+    if ( !T ) {
+      // 代入が定義されていないのでエラーとなります.
+    }
+    expr = expr->cast(T);
+  }
+  else {
+    const type* vt = void_type::create();
+    if ( !T->compatible(vt) ) {
+      // 函数の戻り値の型が void でないのでエラーとなります.
+    }
+  }
+  code.push_back(new return3ac(expr));
+}
+\end{verbatim}

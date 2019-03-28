@@ -1,0 +1,630 @@
+\label{lex_yacc_e000}
+\index{lexical analizer@lexical analizer}
+\index{syntactic analysis@syntactic analysis}
+As described in chpater \ref{front_back_e000}, frontend
+converts program to 3 address code and symbol table.
+Before this converting, frontend does lexixcal analisis
+and syntax analisis. Here we described about these.
+
+Bibliography \cite{doragon} illustrates precicely
+the way of lexical analisis and syntax analisis.
+Now we'll use {\tt{lex}} and {\tt{yacc}} because
+they are very useful.
+
+We can find the C language grammer in bibliography \cite{ISO}.
+In bibliography \cite{KR}, \cite{SGS}, you can find 
+the same kind of description.
+And it is very simple to convert {\tt{yacc}} program text.
+We also can find the C laugage lexicograph in bibliography \cite{ISO}.
+Unfortunately, it's not simple to convert {\tt{lex}} program text, so,
+it's necessary to convert it to regular expression.
+\begin{htmlonly}
+There are  {\tt{lex}} program text and {\tt{yacc}} program text.
+in \ref{grammer_e000}.
+\end{htmlonly}
+
+\section{Syntax analisis using {\tt{yacc}} }
+
+\label{lex_yacc_e003}
+You can find that {\tt{yacc}} just report shift/reduce conflict about
+{\tt{if else}}. And this conflict is recognized as `shift', and it doesn't
+matter.
+
+In the process of upper syntax analisis, we'll just make
+syntax tree. For example, about {\tt{additive-expression}}
+
+\begin{verbatim}
+/* yacc program text */
+%type<expr> multiplicative_expression additive_expression
+...
+additive_expression
+  : multiplicative_expression
+  | additive_expression '+' multiplicative_expression
+    { $$ = new bin_expr('+',$1,$3); }
+  | additive_expression '-' multiplicative_expression
+    { $$ = new bin_expr('-',$1,$3); }
+  ;
+
+// Node for expression
+class expr {
+  ...
+  // Interface for generating 3 address code
+  virtual var* eval() = 0;
+};
+
+// Node for binary expression
+class bin_expr : public expr {
+  ...
+  bin_expr(int op, expr* left, expr* right);
+  var* eval();
+};
+\end{verbatim}
+
+\begin{QandA}
+Generally, for grammer ``A $\rightarrow$ B $|$ C D'', define
+structure Sa, Sb, Sc like bellow
+\begin{verbatim}
+struct Sb;
+struct Sc;
+struct Sd;
+struct Sa {
+  Sb* m_Sb;
+  Sc* m_Sc;
+  Sd* m_Sd;
+  Sa(Sb* b) : m_Sb(b), m_Sc(0), m_Sd(0) {}
+  Sa(Sc* c, Sd* d) : m_Sb(0), m_Sc(c), m_Sd(d) {}
+};
+
+A : B   { $$ = new Sa($1); }
+  | C D { $$ = new Sa($1,$2); }
+  ;
+\end{verbatim}
+This way for generating syntax tree is simple and automatic.
+Does it work?
+
+Answer : It works but please take care if grammer is defined
+recursively like programming lauguage C expression. For example,
+a + b syntax tree contains many empty node. That is, in above
+grammer, almost all are ``A $\rightarrow$ B''.
+It cause use of large heap and then compiler cannot run fast.
+\end{QandA}
+
+\begin{QandA}
+\label{lex_yacc_e001}
+Is it OK not to generate syntax tree but to generate 3 address
+code immediately in the process of upper syntax analisis.
+
+Answer : It's OK. But in this case, you must move a 
+group of 3 address codes. For example, {\tt{for}} statement
+code generation is implemented like bellow if you generate
+syntax tree in the process of upper syntax analisis.
+
+\begin{verbatim}
+/* yacc program */
+for_statement
+  : ...
+  | FOR '(' expression ';' expression ';' expression ')' statement
+    { $$ = new for_stmt($3,$5,$7,$9); }
+  ;
+
+// for statement code generation
+void for_stmt::gen()
+{
+  generate 3 address code of $3
+  label("begin");
+  generate 3 address code of $5
+  generate if result of $5 == 0 goto "end"
+  generate 3 address code of $9
+  generate 3 address code of $7
+  generate goto "begin"
+  label("end);
+}
+\end{verbatim}
+
+On the other hand, if you generate 3 address code immediately in the
+process of upper syntax analisis,
+you must replace 3 address code of {\tt{\$7}}
+and that of {\tt{\$9}}.
+\end{QandA}
+
+\section{Lexical analisis using {\tt{lex}}}
+\label{lex_yacc_e004}
+As described in \ref{lex_yacc_e003}, if we can use  {\tt{yacc}},
+syntax analisis of C programming lauguage is not so difficult.
+But please remember that lexical analizer must work well for it.
+The lexical analisis point is to chose a correct token
+for a lexicography which matches
+regular expression
+\begin{verbatim}
+{nondigit}({nondigit}|{digit})*
+\end{verbatim}
+For this, compiler must reference symbol table at least. For example,
+
+\begin{verbatim}
+typedef int A;    /* insert `A' into symbol table. */
+A a;              /* `A' isn't identifier. It's 
+                     typedef-name. */
+
+void f(void)
+{
+  A A = A;        /* 1st `A' is typedef-name. */
+                  /* 2nd `A' isn't typedef-name. It's
+                     identifier. In this case, compiler
+                     doesn't look up symbol table. */
+                  /* For 3rd `A', compiler looks up 
+                     symbol table, and it's identifier. */
+  ...
+}
+\end{verbatim}
+When compiler detects the minimum unit of declaration,
+compiler must insert it into symbol table.
+
+\begin{verbatim}
+declaration
+  : declaration_specifiers init_declarator_list ';'
+    { /* incorrect timing. */ }
+  | ...
+  ;
+...
+init_declarator
+  : declarator     { /* Now insert symbol table. */ }
+  | declarator '=' { /* Now insert symbol table. */ } initializer
+  ;
+...
+\end{verbatim}
+When compiler choses a correct token, compiler looks up symbol
+table, so, the attribute of lexicography {\tt{identifier}}, {\tt{typedef-name}}
+should be an entry of symbol table.
+Note that compiler doesn't have to look up in {\tt{yacc}} action part.
+Please reference bibliography \cite{doragon} about the attribute
+of lexicography.
+
+\begin{QandA}
+Bibliography \cite{doragon} says that
+the attribute of lexicography {\tt{constant}}
+should be an correspond constant. But in figure
+\ref{front_back_e007}, constant integer {\tt{0}}
+and string literal {\tt{``hello world\verb|\|n''}}
+are in symbol table. Is it necessary? What attribute 
+should be for {\tt{constant}}?
+
+Answer : {\tt{constant}} has it's type in C launguage.
+And string literal storage class is {\tt{static}}.
+Please reference bibliography \cite{ISO} about these.
+Every constant has it's name and type, so it is natural
+that compiler inserts constant into symbol table.
+The attribute of lexicography {\tt{constant}} 
+should be an entry of symbol table like {\tt{identifier}}
+or {\tt{typedef-name}}.
+\end{QandA}
+
+\subsection{Lexical analyzer and symbol table}
+\label{lex_yacc007_e}
+In \ref{lex_yacc_e004}, we described that comiler must
+look up symbol table for a lexicography
+which matches to regular expression
+\begin{verbatim}
+{nondigit}({nondigit}|{digit})*
+\end{verbatim}
+in some cases. If you use the grammer of bibliography \cite{ISO},
+{\tt identifier} and {\tt typedef-name} matches to this regular
+expression. But not only variable and typedef name are in symbol table.
+Tag name of structure, union and enumeration are also in symbol table.
+So we'll let {\tt tag-name} be a terminal symbol and change the
+grammer of bibliography \cite{ISO} like bellow.
+
+\begin{verbatim}
+struct-or-union-specifier :
+  struct-or-union identifier { struct_declaration_list }
+  struct-or-union { struct-declaration-list }
+  struct-or-union identifier
+  struct-or-union tag-name              # This rule is added.
+...
+enum-specifier:
+  enum identifier { enumerator-list }
+  enum            { enumerator-list }
+  enum identifier { enumerator-list , }
+  enum            { enumerator-list , }
+  enum identifier
+  enum tag-name                         # This rule is added.
+\end{verbatim}
+In the rules of {\tt struct-or-union-specifier },
+1st and 2nd rule are the declaration of complete structure or union,
+3rd rurle is the declaration of incomplete structure or union,
+4th rule is the reference of already defined structure or union.
+In the bellow example, we'll know that compiler must look up
+symbol table only in necessary case.
+\begin{verbatim}
+typedef int T;  /* Not look up. `T' is identifier. */
+
+T t;  /* Look up and decide `T' is typedef-name. */
+
+struct T {  /* Not look up. `T' is identifier. */
+  ...
+};
+
+void f(void)
+{
+  struct T t; /* Look up and decide `T' is tag-name. */
+  struct T {  /* Not look up. `T' is identifier. */ 
+    ...
+  };
+}
+\end{verbatim}
+Here, we'll think the case compiler should look up symbol table
+or not when a lexicography matches to regular expression
+{\tt \{nondigit\}(\{nondigit\}|\{digit\})*}.
+
+\newtheorem{Method}{Method}[chapter]
+
+\begin{Method}
+\label{lex_yacc_e002}
+Judge from previous token.
+
+\begin{verbatim}
+int a;          /* previous is int, so not look up.
+                   `a' is identifier. */
+typedef int A;  /* previous is int, so not look up.
+                   `A' is identifier. */
+A aa;           /* previous is ';', so look up and
+                   `A' is typedef-name. */
+                /* previous is typedef-name, so not look up.
+                   `aa' is identifier. */
+\end{verbatim}
+
+If previous token is one of
+\begin{verbatim}
+void char int float double short long signed unsigned
+typdef-name tag-name . -> goto
+\end{verbatim}
+then not look up and make it  {\tt{identifier}}.
+\end{Method}
+
+There are some problems in method \ref{lex_yacc_e002} because
+compiler cannot decide to look up or not from
+previous token.
+
+\begin{verbatim}
+int const a;  /* previous is const,
+                 not look up?  */
+typedef int A;
+const A b;    /* Not good in this case. For `A',
+                 compiler must look up. */
+\end{verbatim}
+If previous token is one of
+\begin{verbatim}
+volatile restrict typedef extern static register auto inline
+\end{verbatim}
+the same problem with {\tt{const}} occurs.
+
+Other problem will occur when the token
+should be {\tt{tag-name}}.
+
+\begin{verbatim}
+struct S {  /* previous is struct, not look up? */
+  ...
+};
+
+struct S s; /* Not good. For `S', compiler must look up. */
+\end{verbatim}
+
+
+\begin{Method}
+\label{lex_yacc_e005}
+Samely as Method \ref{lex_yacc_e002}, remember previous token.
+And also remember the return values of lexical analyzer
+which is one of
+\begin{verbatim}
+void char int float double short long signed unsigned
+typdef-name tag-name
+const volatile restrict
+typedef extern static register auto inline
+\end{verbatim}
+For these token, prepare global container like bellow.
+\begin{verbatim}
+vector<int> lexed_spec;
+\end{verbatim}
+This container must be cleared when one of
+\begin{verbatim}
+declaration
+struct-declaration
+parameter-declaration
+\end{verbatim}
+is reduced.
+
+Bellow function tells us whether compiler should lookup
+symbol table or not.
+\begin{verbatim}
+bool should_lookup()
+{
+  if ( prev == STRUCT || prev == UNION || prev == ENUM )
+    return peek() != '{';
+
+  if ( lexed_spec.empty() )
+    return prev != '.' && prev != ARROW && prev != GOTO;
+
+  return find_if(lexed_spec.begin(),lexed_spec.end(),enough)
+    == lexed_spec.end();
+}
+
+bool enough(int n)
+{
+  If n is one of bellow, return true.
+  void char int float double short long signed unsigned
+  typdef-name tag-name
+
+  If not, return false. i.e. n is one of 
+  const volatile restrict
+  typedef extern static register auto inline
+}
+\end{verbatim}
+\end{Method}
+
+There are some problems in method \ref{lex_yacc_e005}.
+
+\begin{verbatim}
+int typedef A;      /* A : Not look up because int and typedef
+                       are in lexed_spec. */
+
+A a[sizeof(const A)], b;
+                    /* 1st `A' : Look up because lexed_spec is empty
+                       and previous token is ';'. */
+                    /* `a' : Not look up because typedef-name is
+                       in lexed_spec. */
+                    /* 2nd `A' : Not good. Compiler should have
+                       looked up. typedef-name and const are
+                       in lexed_spec. */
+                    /* `b' : Not look up because typedef-name
+                        and const are in lexed_spec. This is OK,
+                        but type of `b' becomes const A. */
+
+void f(A a);        /* `f' : Not look up because void is in lexed_spec. */
+                    /* `A' : Not good. Compiler should have looked up.
+                        void is in lexed_spec. */
+                    /* `a' : Not look up because void is in lexed_spec.
+                       This is OK, but type of `a' becomes void. */
+\end{verbatim}
+
+\begin{Method}
+\label{lex_yacc_e006}
+Samely as \ref{lex_yacc_e002}, remember previous token.
+And samely as \ref{lex_yacc_e005}, remember {\tt{lexed\_spec}}.
+And more, remember bellow infomation.
+\begin{verbatim}
+struct spec {
+  type* m_type; // remember type
+  int m_other;  // remember storage class or function specifier
+};
+stack<spec*> spec_stack;
+\end{verbatim}
+Before clearing {\tt{lexed\_spec}}, 
+push {\tt{spec}} whihch is same with {\tt{lexed\_spec}}
+to {\tt{spec\_stack}}.
+And then push 0.
+Bellow example shows the timing of clear, push and pop.
+
+\begin{verbatim}
+typedef short int A[3];
+static int n =
+/* push (static, int). clear lexed_spec. push 0. */
+sizeof(A), /* `A' : Look up. pop. */
+m    /* Reference spec_stack.top() */
+;    /* pop. */
+
+struct S {
+  unsigned int a :
+  /* push (unsigned int). clear lexed_spec. push 0. */
+  sizeof(A), /* `A' : Look up. pop. */
+  b[5]  /* Reference spec_stack.top() */
+  ;     /* pop. */
+};
+
+int b[  /* push (int). clear lexed_spec. push 0. */
+     sizeof(A)  /* `A' : Look up. */
+     ]  /* pop */
+     , c /* Reference spec_stack.top(). */
+     ;     /* pop. */
+
+inline void f(a,b,c)
+  /* push (inline, void ()). clear lexed_spec. push 0. */
+  int a;    /* `a' : Not look up because int is in lexed_spec. */
+  double b; /* `b' : Not look up because double is in lexed_spec. */
+  char* c;  /* `c' : Not look up because spec_stack.top() has infomation. */
+  /* pop */
+{
+  ...
+}
+
+static void g(
+/* push (static, void). clear lexed_spec. push 0. */
+  FILE  /* Look up because spec_stack.top() is 0. */
+  *
+  fp    /* Not look up because spec_stack.top() is FILE*.  */
+  /* pop */
+);
+\end{verbatim}
+
+Now, we can rewrite function {\tt{should\_lookup}} like bellow.
+\begin{verbatim}
+bool should_lookup()
+{
+  if ( prev == STRUCT || prev == UNION || prev == ENUM )
+    return peek() != '{';
+
+  if ( !lexed_spec.empty() ) {
+    return find_if(lexed_spec.begin(),lexed_spec.end(),enough)
+      == lexed_spec.end();
+  }
+
+  if ( !spec_stack.empty() )
+    return !spec_stack.top();
+
+  return prev != '.' && prev != ARROW && prev != GOTO;
+}
+\end{verbatim}
+\end{Method}
+
+There is a problem about {\tt{abstract-declarator}}
+in method \ref{lex_yacc_e006}.
+\begin{verbatim}
+typedef int T;
+T f(T (T));
+\end{verbatim}
+where {\tt{f}} should not be same with
+\begin{verbatim}
+T f(T);
+\end{verbatim}
+But {\tt{f}} should be same with
+\begin{verbatim}
+T f(T (*)(T));
+\end{verbatim}
+In 1st declaration of {\tt{f}}, 3rd {\tt{T}} should have been
+looked up and decided it {\tt{typedef-name}}.
+Please note that the declaration
+\begin{verbatim}
+T f(T (a));
+\end{verbatim}
+is equivalent to
+\begin{verbatim}
+T f(T);
+\end{verbatim}
+And also, please note that
+\begin{verbatim}
+T (T);  // T (T) out side of parameter
+\end{verbatim}
+is equivalent to
+\begin{verbatim}
+int T;
+\end{verbatim}
+and
+\begin{verbatim}
+T f(T (T));  // T (T) at parameter scope
+\end{verbatim}
+is equivalent to
+\begin{verbatim}
+int f(int (*pf)(int));
+\end{verbatim}
+
+Above example shows that
+we cannot decide whether compiler should look up or not.
+But we decide like bellow.
+If previous token is '(' and compiler analyzes
+in parameter scope, then look up the symbol. And
+if it is {\tt{typedef-name}}, its token is {\tt{typedef-name}}.
+That is,
+
+\begin{verbatim}
+/* lex program */
+{nondigit}({nondigit}|{digit})*   { return judge(yytext); }
+
+// Decide token of name. identifier, typedef-name or tag-name.
+int judge(string name)
+{
+  if ( prev == STRUCT || prev == UNION || prev == ENUM ) {
+    if ( peek() == '{'; )
+      return IDENTIFIER;
+    if ( int r = lookup(name) )  // Only look up tag name
+      return r;
+    return IDENTIFIER;
+  }
+
+  if ( !lexed_spec.empty() ) {
+    p = find_if(lexed_spec.begin(),lexed_spec.end(),enough);
+    if ( p != lexed_spec.end() )
+      return IDENTIFIER;
+    if ( int r = lookup(name) )
+      return r;
+    return IDENTIFIER; // If not exists, not error.
+  }
+
+  if ( !spec_stack.empty() ) {
+    if ( prev == '(' && analyzing parameter scope ) {
+      int r = lookup(name);
+      if ( r && r == TYPEDEF_NAME )
+        return TYPEDEF_NAME;
+      return IDENTIFIER; // If not exists, not error.
+    }
+
+    if ( spec_stack.top() )
+      return IDENTIFIER;
+
+    if ( int r = lookup(name) )
+      return r;   
+
+    return IDENTIFIER; // Maybe error, but cannot decide here.
+  }
+
+  if ( prev == '.' || prev == ARROW || prev == GOTO )
+    return IDENTIFIER;
+
+  if ( int r = lookup(name) )
+    return r;
+
+  return IDENTIFIER; // Maybe error, but cannot decide here.
+}
+\end{verbatim}
+
+Compiler cannot make it error immediately even if the symbol is not in
+symbol table.
+\begin{verbatim}
+main()  /* Not specified return type or storage class of `main'.
+           lexed_spec is empty and spec_stack is empty.
+           previous token is meaningless. Compiler looks up
+           but not in symbol table. */
+{
+  printf("hello world\n");
+  /* call function which is not declared.
+     lexed_spec is empty and spec_stack is
+     empty. previous token is '{'. Compiler looks up
+     but not in symbol table. */
+
+label:   /* Look up but not in symbol table. */
+  ;
+
+  int f(a,b,c);  /* For `a', `b', `c',
+                    look up but not in symbol table. */
+}
+\end{verbatim}
+In some cases, undeclared variable reference in expression 
+must be dealt when compiler generates 3 address code.
+
+\begin{verbatim}
+int f();
+
+int g(int a)
+{
+  // ...
+label:      // Should be looked up `label'?
+  f();
+
+  // ...
+  a ? --a : g(++a);   // ':' apears here
+
+  struct S {
+    int a : sizeof f();  // And ':' apears here too.
+
+    // ...
+  };
+
+f:   // should be look up `f'?
+  g(f());
+
+  // ...
+}
+\end{verbatim}
+Finaly, please consider that it sould be looked up identifier
+before ':'.
+The rules we discussed at this section specify that:
+\begin{itemize}
+\item
+look up `a' at expr1 ? a : expr2 
+\item
+not look up `a' at int a : sizeof f();
+\end{itemize}
+
+I don't want to, if it's possible, look up label at
+labeled-statement. But if it's difficult to judge,
+just looking up may be simple because
+we can change the way to deal with the label
+at code generation routine of labeled-statement,
+according to the label entried at symbol table or not.

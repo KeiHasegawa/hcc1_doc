@@ -1,0 +1,2890 @@
+\label{optimize051}
+
+\ref{stmt006} 章までに, C プログラムを記号表と 3 番地コードに変換する
+までの議論をしてきました. この章では記号表と 3 番地コードを意味的に
+等価で, より優れたものに変換することについて議論します.
+
+\ref{stmt006} 章でも述べたように,
+上向き構文解析の過程で文法記号 {\tt{function-definition}} が還元され,
+現在の函数に対して記号表と 3 番地コードが得られている状況は以下のように
+なります.
+
+\begin{verbatim}
+%{
+/* yacc による記述 */
+vector<tac*> code;
+struct scope {
+  ...
+  static scope root;
+};
+%}
+
+%%
+...
+function_definition
+  : function_header compound_statement
+    { function_definition($2); }
+...
+%%
+void function_definition(comp_stmt* cs)
+{
+  cs->gen(); /* グローバル変数 code に 3 番地コードが出力されます */
+  ...
+  if ( !error::counter )
+    optimize(code);
+
+  backend(&scope::root,code,...);  // バックエンドに記号表と
+                                   // 3 番地コードを出力します.
+  ...
+}
+\end{verbatim}
+
+\section{参照されないラベルの削除}
+\label{optimize003}
+\ref{_3ac002} で述べたクラス
+{\tt{to3ac}} のように, ラベルを参照しているジャンプコードを
+判定できれば, 以下のように参照されないラベルを削除することができます.
+
+\begin{verbatim}
+void erase_to3ac(vector<tac*>& v)
+{
+  for ( p = v.begin() ; p != v.end() ; ) {
+    to3ac* to = dynamic_cast<to3ac*>(*p);
+    if ( !to ) {
+      ++p;
+      continue; 
+    }
+    if ( !to->m_goto.empty() ) {
+      ++p;
+      continue; 
+    }
+    p = v.erase(p);
+  }
+}
+\end{verbatim}
+
+\section{基本ブロックにおける最適化}
+\label{optimize058}
+参考文献 \cite{doragon} 9 章に基本ブロックにおける
+最適化の手法が説明されています. 基本ブロックは以下のような
+データ構造で表現することができるでしょう.
+
+\begin{verbatim}
+struct basic_block {
+  tac** m_leader;                  // 基本ブロックのリーダー
+  int m_size;                      // 基本ブロックのサイズ
+  vector<basic_block*> m_preceed;  // 先行する基本ブロック
+  vector<basic_block*> m_follow;   // 後続する基本ブロック
+};
+\end{verbatim}
+
+\subsection{基本ブロックへの分割}
+
+参考文献 \cite{doragon} アルゴリズム 9.1 に基本ブロックへの
+分割方法があります. ここでもその方法を採用することにします.
+例えば, 以下のプログラム
+\begin{verbatim}
+int f(int* a, int* b, int n)
+{
+  int prod = 0;
+  for ( int i = 0 ; i < n ; ++i )
+    prod += a[i] * b[i];
+  return prod;
+}
+\end{verbatim}
+に対して 3 番地コードは, 以下のようになります.
+\begin{verbatim}
+f:
+    prod := 0
+    i := 0
+  label0:
+    if i >= n goto label1
+    t0 := 4 * i
+    t1 := a + t0
+    t2 := 4 * i
+    t3 := b + t2
+    t4 := *t1
+    t5 := *t3
+    t6 := t4 * t5
+    t7 := prod + t6
+    prod := t7
+    i := i + 1
+    t8 := i
+    goto label0
+  label1:
+    t9 := prod
+    return t9
+\end{verbatim}
+これを基本ブロックに分割すると図 \ref{optimize000} のようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.8\linewidth,height=1.436\linewidth]{basic_block.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.8\linewidth,height=1.436\linewidth]{basic_block.eps}
+\end{latexonly}
+\caption{基本ブロックへの分割}
+\label{optimize000}
+\end{center}
+\end{figure}
+
+\subsection{基本ブロックを超えて生きている中間変数}
+
+\label{optimize004}
+参考文献 \cite{doragon} 9.5 節では
+\begin{quote}
+ただし, 中間コード生成アルゴリズムや
+コード最適化アルゴリズムが, いくつもかのブロックを通して同じ一時変数を
+使用するとあれば, それらも生きていると仮定しなければならない. そのような
+一時変数には特別の印をつけておいて, 両者生死を区別するのがよい.
+\end{quote}
+と書かれています. ここで, \ref{expr000} 章で述べた式に対する
+コード生成の方法で基本ブロックを超えて生きている中間変数に
+ついて考えてみます. 例えば
+\begin{verbatim}
+int f(int a, int b, int c){ return a * b + !c; }
+\end{verbatim}
+このプログラムに対する 3 番地コードは
+\begin{verbatim}
+f:
+  t0 := a * b
+  if c != 0 goto label1
+  t1 := 1
+  goto label2
+label1:
+  t1 := 0
+label2
+  t2 := t0 + t1
+  return t2
+\end{verbatim}
+のようになります. この 3 番地コード列から基本ブロックに分割すると
+図 \ref{optimize001} のようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.89\linewidth,height=1.0\linewidth]{beyond_medium.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.89\linewidth,height=1.0\linewidth]{beyond_medium.eps}
+\end{latexonly}
+\caption{基本ブロックを超えて生きている中間変数}
+\label{optimize001}
+\end{center}
+\end{figure}
+中間変数 {\tt{t1}} は基本ブロックを超えて生きて
+いますが, {\tt{t0}} もまた基本ブロックを超えて生きている
+ことに注意して下さい. 一般に左結合の二項演算子 $@$ に対して
+式 $expr_0 @ expr_1$ において
+$expr_1$ の結果が基本ブロックを超えて生きているならば
+$expr_0$ の結果もやはり基本ブロックを超えて生きている
+ことになってしまいます.
+\begin{verbatim}
+void bin_expr::eval(expr* left, expr* right)
+{
+  var* y = left->eval();
+  y = y->rvalue();
+  var* z = right->eval();
+  z = z->rvalue();
+  if ( z->m_beyond ) {
+    // 特別の印が付いています. すなわち z は基本ブロックを超えて生き
+    // ているということです.
+    // y も基本ブロックを超えて生きているという印を付けます.
+    y->m_beyond = true;
+  }
+  ...
+  var* x = y->vf(z);
+  ...
+  return x;
+  // x はまだ特別の印が付いていませんが, 演算子が適用された場合は
+  // 特別の印が付けられるかもしれません. すなわち, 基本ブロックを
+  // 超えて生きているとされるかもしれません.
+}
+\end{verbatim}
+仮に, 中間変数ではない, プログラムに現われる変数が
+基本ブロックを超えて生きているとして解析を省略した場合, フロ
+ントエンドは「中間変数は基本ブロックを超えて生きているかもしれない」としなくて
+はいけません.
+すなわち, 参考文献 \cite{doragon} の言うところの「特別の印」を付けた
+としても, それらは全て「基本ブロックを超えて生きている」という
+ことになってしまいま
+す.
+
+\subsection{生きている変数の解析}
+
+参考文献 \cite{doragon} のアルゴリズム 10.4 で生きている変数の解析について
+述べられているので, ここでそれを採用することにします.
+以下のプログラムについて考えてみましょう.
+\begin{verbatim}
+extern int a[];
+
+void quicksort(int m, int n)
+{
+  if ( n <= m ) return;
+  int i = m - 1;
+  int j = n;
+  int v = a[n];
+  while ( 1 ) {
+    do i = i + 1; while ( a[i] < v );
+    do j = j - 1; while ( a[j] > v );
+    if ( i >= j ) break;
+    int x = a[i]; a[i] = a[j]; a[j] = x;
+  }
+  int y = a[i]; a[i] = a[n]; a[n] = y;
+  quicksort(m,j); quicksort(i+1,n);
+}
+\end{verbatim}
+これに対して \ref{optimize003} で述べた
+参照されないラベルの削除のみ行なうと
+ 3 番地コードは, 例えば以下のようになります.
+\begin{verbatim}
+quicksort:                  label4:
+  if n > m goto label0        t10 := 4 * i
+  return                      t11 := a[t10]
+label0:                       x := t11
+  t0 := m - 1                 t12 := 4 * i
+  i := t0                     t13 := 4 * j
+  t1 := n                     t14 := a[t13]
+  j := t1                     a[t12] := t14
+  t2 := 4 * n                 t15 := 4 * j
+  t3 := a[t2]                 t16 := x
+  v := t3                     a[t15] := t16
+label1:                       goto label1
+label2:                     label5:
+  t4 := i + 1                 t17 := 4 * i
+  i := t4                     t18 := a[t17]
+  t5 := 4 * i                 y := t18
+  t6 := a[t5]                 t19 := 4 * i
+  if t6 < v goto label2       t20 := 4 * n
+label3:                       t21 := a[t20]
+  t7 := j - 1                 a[t19] := t21
+  j := t7                     t22 := 4 * n
+  t8 := 4 * j                 t23 := y
+  t9 := a[t8]                 a[t22] := t23
+  if t9 > v goto label3       t24 := m
+  if i < j goto label4        t25 := j
+  goto label5                 param t24
+                              param t25
+                              call quicksort
+                              t26 := i + 1
+                              t27 := n
+                              param t26
+                              param t27
+                              call quicksort
+\end{verbatim}
+基本ブロックへ分割すると図 \ref{optimize002} のようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.01\linewidth,height=1.75\linewidth]{quicksort.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.01\linewidth,height=1.75\linewidth]{quicksort.eps}
+\end{latexonly}
+\caption{{\tt{quicksort}} の基本ブロック}
+\label{optimize002}
+\end{center}
+\end{figure}
+\ref{optimize004} では基本ブロックを超えて生きている中間変数がありうる
+ことを述べましたが, ここではすべての中間変数は基本ブロックを超えて
+生きていません. この事実を以下に述べるアルゴリズムで求めてみましょう.
+
+基本ブロック $B$ の直前で生きている変数の集合を $in[B]$ とします.
+同様に, $B$ の直後の点で生きている変数の集合を $out[B]$ とします.
+$B$ において, 変数の使用よりも先に定義されている変数の集合を $def[B]$
+とします. 変数の定義よりも先に使用される変数の集合を $use[B]$ とします.
+このとき, 参考文献 \cite{doragon} 式(10.11) で述べられているように
+\begin{eqnarray*}
+out[B] & = & \bigcup_{F は B の後続する基本ブロック} in[F] \\
+in[B]  & = & use[B] \cup (out[B] - def[B])
+\end{eqnarray*}
+が成立しています. 参考文献 \cite{doragon} に述べられているように
+入力 $def, use$ に対して, この方程式を反復法で解き $out$ を求めてみましょう.
+
+図 \ref{optimize002} における各基本ブロックについて $def, use$ を
+事前に計算しておきます. $def, use$ は以下の表のようになります.
+
+\vspace{0.5cm}
+
+\begin{tabular}{|l|l|l|} \hline
+   & $def$             & $use$     \\ \hline
+B0 &                   & m n       \\ \hline
+B1 &                   &           \\ \hline
+B2 & v i j t0 t1 t2 t3 & a m n 1 4 \\ \hline
+B3 &                   &           \\ \hline
+B4 & t4 t5 t6          & a v i 1 4 \\ \hline
+B5 & t7 t8 t9          & a v j 1 4 \\ \hline
+B6 &                   & i j       \\ \hline
+B7 &                   &           \\ \hline
+B8 & x t10 t11 t12 t13 t14 t15 t16 & a i j 4 \\ \hline
+B9 & y t17 t18 t20 t19 t21 t22 t23 & quicksort a m n \\
+   & t24 t25 t26 t27               & i j 1 4 \\ \hline
+\end{tabular}
+
+\vspace{0.5cm}
+
+一般に, すべてのブロックでグローバル変数は
+生きているので, これらを各 $B$ に対して $out[B]$ に追加しておきます.
+各 $B$ に対する $in[B]$ を空集合として反復法を開始します.
+
+\vspace{0.5cm}
+
+\begin{tabular}{|l|l|l|} \hline
+ステップ 0  & $out$             & $in$      \\ \hline
+B0 & quicksort a 1 4   & quicksort a 1 4 m n \\ \hline
+B1 & quicksort a 1 4   & quicksort a 1 4     \\ \hline
+B2 & quicksort a 1 4   & quicksort a 1 4 m n \\ \hline
+B3 & quicksort a 1 4   & quicksort a 1 4     \\ \hline
+B4 & quicksort a 1 4   & quicksort a 1 4 v i \\ \hline
+B5 & quicksort a 1 4   & quicksort a 1 4 v j \\ \hline
+B6 & quicksort a 1 4   & quicksort a 1 4 i j \\ \hline
+B7 & quicksort a 1 4   & quicksort a 1 4     \\ \hline
+B8 & quicksort a 1 4   & quicksort a 1 4 i j \\ \hline
+B9 & quicksort a 1 4 \hspace{1.7cm}
+ & quicksort a 1 4 m n i j  \hspace{0.1cm} \\ \hline
+\end{tabular}
+
+\begin{tabular}{|l|l|l|} \hline
+ステップ 1  & $out$             & $in$      \\ \hline
+B0 & quicksort a 1 4 m n     & quicksort a 1 4 m n   \\ \hline
+B1 & quicksort a 1 4 m n     & quicksort a 1 4 m n   \\ \hline
+B2 & quicksort a 1 4         & quicksort a 1 4 m n   \\ \hline
+B3 & quicksort a 1 4 v i     & quicksort a 1 4 v i j \\ \hline
+B4 & quicksort a 1 4 v i j   & quicksort a 1 4 v i j \\ \hline
+B5 & quicksort a 1 4 v i j   & quicksort a 1 4 v i j \\ \hline
+B6 & quicksort a 1 4 i j     & quicksort a 1 4 i j   \\ \hline
+B7 & quicksort a 1 4 m n i j & quicksort a 1 4 m n i j  \\ \hline
+B8 & quicksort a 1 4 v i     & quicksort a 1 4 v i j  \\ \hline
+B9 & quicksort a 1 4  \hspace{1.7cm}
+   & quicksort a 1 4 m n i j  \hspace{0.1cm} \\ \hline
+\end{tabular}
+
+\begin{tabular}{|l|l|l|} \hline
+ステップ 2  & $out$             & $in$      \\ \hline
+B0 & quicksort a 1 4 m n       & quicksort a 1 4 m n        \\ \hline
+B1 & quicksort a 1 4 m n       & quicksort a 1 4 m n        \\ \hline
+B2 & quicksort a 1 4 v i       & quicksort a 1 4 m n        \\ \hline
+B3 & quicksort a 1 4 v i j     & quicksort a 1 4 v i j      \\ \hline
+B4 & quicksort a 1 4 v i j     & quicksort a 1 4 v i j      \\ \hline
+B5 & quicksort a 1 4 v i j     & quicksort a 1 4 v i j      \\ \hline
+B6 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B7 & quicksort a 1 4 m n i j   & quicksort a 1 4 m n i j  \\ \hline
+B8 & quicksort a 1 4 v i j     & quicksort a 1 4 v i j  \\ \hline
+B9 & quicksort a 1 4           & quicksort a 1 4 m n i j \\ \hline
+\end{tabular}
+
+\begin{tabular}{|l|l|l|} \hline
+ステップ 3  & $out$             & $in$      \\ \hline
+B0 & quicksort a 1 4 m n       & quicksort a 1 4 m n        \\ \hline
+B1 & quicksort a 1 4 m n       & quicksort a 1 4 m n        \\ \hline
+B2 & quicksort a 1 4 v i j     & quicksort a 1 4 m n        \\ \hline
+B3 & quicksort a 1 4 v i j     & quicksort a 1 4 v i j      \\ \hline
+B4 & quicksort a 1 4 v i j     & quicksort a 1 4 v i j      \\ \hline
+B5 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B6 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B7 & quicksort a 1 4 m n i j   & quicksort a 1 4 m n i j  \\ \hline
+B8 & quicksort a 1 4 v i j     & quicksort a 1 4 v i j  \\ \hline
+B9 & quicksort a 1 4           & quicksort a 1 4 m n i j \\ \hline
+\end{tabular}
+
+\begin{tabular}{|l|l|l|} \hline
+ステップ 4  & $out$             & $in$      \\ \hline
+B0 & quicksort a 1 4 m n       & quicksort a 1 4 m n        \\ \hline
+B1 & quicksort a 1 4 m n       & quicksort a 1 4 m n        \\ \hline
+B2 & quicksort a 1 4 v i j     & quicksort a 1 4 m n        \\ \hline
+B3 & quicksort a 1 4 v i j     & quicksort a 1 4 v i j      \\ \hline
+B4 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B5 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B6 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B7 & quicksort a 1 4 m n i j   & quicksort a 1 4 m n i j  \\ \hline
+B8 & quicksort a 1 4 v i j     & quicksort a 1 4 v i j  \\ \hline
+B9 & quicksort a 1 4           & quicksort a 1 4 m n i j \\ \hline
+\end{tabular}
+
+\begin{tabular}{|l|l|l|} \hline
+ステップ 5  & $out$             & $in$      \\ \hline
+B0 & quicksort a 1 4 m n       & quicksort a 1 4 m n        \\ \hline
+B1 & quicksort a 1 4 m n       & quicksort a 1 4 m n        \\ \hline
+B2 & quicksort a 1 4 v i j     & quicksort a 1 4 m n        \\ \hline
+B3 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B4 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B5 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B6 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B7 & quicksort a 1 4 m n i j   & quicksort a 1 4 m n i j  \\ \hline
+B8 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B9 & quicksort a 1 4           & quicksort a 1 4 m n i j \\ \hline
+\end{tabular}
+
+\begin{tabular}{|l|l|l|} \hline
+ステップ 6  & $out$             & $in$      \\ \hline
+B0 & quicksort a 1 4 m n       & quicksort a 1 4 m n        \\ \hline
+B1 & quicksort a 1 4 m n       & quicksort a 1 4 m n        \\ \hline
+B2 & quicksort a 1 4 v i j     & quicksort a 1 4 m n        \\ \hline
+B3 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B4 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B5 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B6 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B7 & quicksort a 1 4 m n i j   & quicksort a 1 4 m n i j  \\ \hline
+B8 & quicksort a 1 4 v m n i j & quicksort a 1 4 v m n i j  \\ \hline
+B9 & quicksort a 1 4           & quicksort a 1 4 m n i j \\ \hline
+\end{tabular}
+
+\vspace{0.5cm}
+ステップ 5 とステップ 6 ですべての基本ブロック $B$ に対して $in[B]$ が
+変更されなかったので反復法が停止します.
+図 \ref{optimize002} の各基本ブロックの出口で生きている変数の集合
+は次のようになります.
+
+\vspace{0.5cm}
+
+\begin{tabular}{|l|l|l|} \hline
+   & $out$                            \\ \hline
+B0 & quicksort a m n  1 4             \\  \hline
+B1 & quicksort a 1 4                  \\ \hline
+B2 & quicksort a m n  v i j 1 4       \\ \hline
+B3 & quicksort a m n  v i j 1 4       \\ \hline
+B4 & quicksort a m n  v i j 1 4       \\ \hline
+B5 & quicksort a m n  v i j 1 4       \\ \hline
+B6 & quicksort a m n  v i j 1 4       \\ \hline
+B7 & quicksort a m n    i j 1 4       \\ \hline
+B8 & quicksort a m n  v i j 1 4       \\ \hline
+B9 & quicksort a 1 4              \\ \hline
+\end{tabular}
+
+\vspace{0.5cm}
+
+同様に図 \ref{optimize001} に対してこのアルゴリズムを適用
+すると, 中間変数 {\tt{t0,t1}} が最後の基本ブロック以外の直後で
+生きていることが分かります.
+
+\subsection{代入と共通部分式}
+\label{optimize_assign}
+前節までに基本ブロックへの分割と
+基本ブロックの出口で生きている変数の解析について述べました. そ
+のもとで, この節では
+基本ブロックを構成する 3 番地コードから
+冗長な代入や共通部分式を見つけることについて考えてみます.
+
+参考文献 \cite{doragon} で述べられているように, 基本ブロック
+を {\em dag} で表現してみましょう. {\em dag} は以下のような
+構造体で表現することができます.
+
+\begin{verbatim}
+struct dag {  // dag の節点
+  tac* m_tac;             // 対応する 3 番地コード. 節点のラベル
+  vector<var*> m_vars;      // 計算している変数. 識別子並び
+  vector<dag*> m_parents;   // 親
+  dag* m_left;              // 左の子
+  dag* m_right;             // 右の子
+  static vector<dag*> all;  // すべてのリスト
+  dag() : m_tac(0), m_left(0), m_right(0) { all.push_back(this); }
+};
+
+map<var*, dag*> node;  // 変数から節点へのテーブル
+\end{verbatim}
+
+基本ブロックから {\em dag} への変換や, それに対するコード生成
+アルゴリズムを示す前に具体的に以下の例について考えてみましょう.
+
+\begin{Example}
+\label{optimize006}
+\begin{verbatim}
+int n; void f(void){ ++n; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+   n := n + 1
+  t0 := n
+\end{verbatim}
+3 番地コードから {\em dag} を作成する過程を図 \ref{optimize005} に
+示しました.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.5\linewidth,height=1.01\linewidth]{opt000.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.5\linewidth,height=1.01\linewidth]{opt000.eps}
+\end{latexonly}
+\caption{例 \ref{optimize006} の {\em dag}}
+\label{optimize005}
+\end{center}
+\end{figure}
+
+\begin{enumerate}
+\item {\tt{n := n + 1}} において右辺の {\tt{n}} に対してテーブル {\tt{node[n]}}
+は定義されていないので, 新しい節点 {\tt{dag}} を作成し, その識別子並び
+{\tt{m\_vars}} に {\tt{n}} を追加し, この {\tt{dag}} を
+{\tt{node[n]}} とします.
+
+\item {\tt{n := n + 1}} において {\tt{1}} に対してテーブル {\tt{node[1]}}
+は定義されていないので, 新しい節点 {\tt{dag}} を作成し, その識別子並び
+{\tt{m\_vars}} に {\tt{1}} を追加し, この {\tt{dag}} を
+{\tt{node[1]}} とします.
+
+\item リスト {\tt{dag::all}} の中からラベルが {\tt{+}} で
+左の子 {\tt{y}} に対して {\tt{node[n]} = y} で
+右の子 {\tt{z}} に対して {\tt{node[1]} = z} となっている節点を検索します. こ
+こではないので, 新しく {\tt{dag}} を作成し, これらの条件を満たすようにして
+おきます. そして {\tt{node[n]}} をここで作成した節点にしておきます.
+
+\item {\tt{t0 := n}} に対して {\tt{node[n]}} はすでに定義されているので
+{\tt{node[n]}} の識別子並び {\tt{m\_vars}} に {\tt{t0}} を追加します.
+\end{enumerate}
+このようにして作成された {\em dag} を以下のように順番に評価することで
+コード生成を行ないます.
+
+\begin{enumerate}
+\item 識別子並び {\tt{n}} のみを持つ節点に対して評価を
+      行ないます. ここではコード生成は行なわれず,
+      結果は {\tt{n}} となります. 
+
+\item 識別子並び {\tt{1}} を持つ節点に対して評価を
+      行ないます. ここではコード生成は行なわれず,
+      結果は {\tt{1}} となります. 
+
+\item 識別子並び {\tt{n, t0}} を持つ節点に対して評価を
+      行ないます.
+      識別子並び {\tt{n, t0}} を順番に調べ, {\tt{node}}
+      の値がこの節点であるもので 
+      この基本ブロックの
+      出口で生きている変数を選びます( 2 つ目の条件は
+      オプショナル). 
+      ここでは {\tt{n}} が選択されます.
+      この識別子に対してコード生成を行ない {\tt{n := n + 1}} を出力します.
+
+\item 残りの識別子全てについて, それがこの基本ブロックの出口で
+      生きているのならば代入を生成します. この場合, {\tt{t0}} はこの
+      基本ブロックの出口で生きていないので代入は生成されません.
+\end{enumerate}
+この結果 {\tt{n := n + 1}} のみが生成され {\tt{t0 := n}} は生成されない
+ことになります.
+\end{Example}
+
+基本ブロックの {\em dag} は以下のアルゴリズムで得ることができます.
+\begin{quote}
+{\bf 基本ブロックの {\em dag} 作成アルゴリズム}
+
+基本ブロックの各 3 番地コードに対して以下を適用します.
+\begin{enumerate}
+\item {\tt{x := y $op$ z}} において {\tt{y}} がなければ,
+      戻り値なしの復帰({\tt{return3ac}} でメンバ {\tt{y}} が 0),
+      無条件ジャンプ({\tt{goto3ac}} でメンバ {\tt{y, z}} が 0),
+      ジャンプ先ラベル({\tt{to3ac}}), アセンブリ出力({\tt{asm3ac}})
+      等の特別な 3 番地コードであるとして必ず {\tt{dag}} を作成しこの
+      手続を終了します.
+
+\item {\tt{node[y]}} がまだ定義されていないのであれば,
+      新しい節点 {\tt{dag}} を作成し, {\tt{m\_vars}} に {\tt{y}} を
+      追加し, この {\tt{dag}} を {\tt{node[y]}} とします.
+
+\item {\tt{z}} が指定されていて {\tt{node[z]}} がまだ定義されていない
+      のであれば新しい節点 {\tt{dag}} を作成し, {\tt{m\_vars}} に {\tt{z}} を
+      追加し, この {\tt{dag}} を {\tt{node[z]}} とします.
+
+\item 
+\label{optimize047}
+以下のような節点 {\tt{dag}} $n$ を求めます.
+
+\begin{enumerate}
+\item 3 番地コードが {\tt{x := y}} ならば, {\tt{node[y]}} を $n$ とします.
+\item 3 番地コードが {\tt{call}},  {\tt{va\_arg}}
+      の場合は新しい節点を作成し, それを $n$ とします.
+\item 3 番地コード {\tt{x := y $op$ z}} において {\tt{x}} が指定されて
+      いない場合は新しい節点を作成し, それを $n$ とします.
+\item 上記以外の 3 番地コード {\tt{x := y $op$ z}} に対して,
+      左の子が {\tt{node[y]}} で
+      右の子が {\tt{node[z]}} でラベル $op$ を持つ節点 {\tt{dag}} を
+      リスト {\tt{dag::all}} から検索します. 特に
+\begin{enumerate}
+\item 3 番地コード {\tt{x := y[z]}}, {\tt{x := *y}}  の
+      場合は {\tt{x}} の型が {\it
+      compatible} でなくてはならないとします.
+\item 3 番地コード {\tt{x[y] := z}}, {\tt{alloc x, y}} の場合
+      は {\tt{x}} も等しくなくてはならないとします.
+\item 3 番地コード {\tt{x := (type)y}} の場合は {\tt{type}} が
+     {\it compatible} でなくてはならないとします.
+\end{enumerate}
+      もしあればそれを $n$ とします.
+\item \label{optimize109}
+      特に 3 番地コード {\tt{x := y[z]}} の場合にそのような節点がなければ
+      さらに以下のような節点を {\tt{dag::all}} から探します.
+      \begin{itemize}
+      \item 節点のラベルが {\tt{x'[y'] := z'}} である.
+      \item {\tt{node[y]}} とその節点が一致している.
+      \item {\tt{node[z]}} とその点の左の子が一致している.
+      \item {\tt{x}} の型と {\tt{z'}} の型が {\it compatible} である.
+      \end{itemize}
+      もしあればその右の子を $n$ とします.
+\item やはりそのような節点がなければ
+      新しい節点を作成し, それを $n$ とします.
+\end{enumerate}
+\item \label{optimize112}
+      3 番地コードが {\tt{call3ac}, {\tt{invladdr3ac}}} ならば
+      以下を適用しこの手続きを終了します.
+      \begin{enumerate}
+      \item 3 番地コードが {\tt{x := call f}} で {\tt{x}} が 0 でないの
+	    ならば, $n$ の識別子並び {\tt{m\_vars}} に {\tt{x}} を追加し
+            {\tt{node[x]}} を $n$ とします.
+      \item 後述する {\bf {\em dag} からのコード生成アルゴリズム}
+            を適用します.   
+      \item {\tt{node}} をクリアします.
+      \item 後述する {\tt{result}} をクリアします.
+      \end{enumerate}
+\item 3 番地コード {\tt{x := y $op$ z}} において {\tt{x}} が指定されてい
+      なければ
+      この手続を終了します.
+
+\item 手順 \ref{optimize047} で求めた節点 $n$ の識別子並び {\tt{m\_vars}} に
+3 番地コード {\tt{x := y op z}} の {\tt{x}} を追加します.
+また {\tt{node[x]}} を $n$ とします.
+\end{enumerate}
+
+\end{quote}
+
+{\em dag} からのコード生成は以下のアルゴリズムを適用します.
+
+\begin{quote}
+{\bf {\em dag} からのコード生成アルゴリズム}
+
+{\tt{dag::all}} のそれぞれに対して以下の {\tt{var*}} を返す手続きを適用
+します. 手続きを適用した結果を {\tt{map<dag*, var*> result}} に保持して
+ おきます.
+
+\begin{enumerate}
+\item 節点のラベルがないのならば以下の{\bf 代入判定アルゴリズム}の戻り値
+      を返し, この手続きを終了します.
+\item \label{optimize108}
+節点のラベルが {\tt{x[y] := z}} で, 節点に親がいるのならば,
+      この
+      {\tt{x}} に対して後述する手順 \ref{optimize064} で生成を省略された
+      すべての {\tt{x[y'] := z'}} を省略した位置に出力します.
+\item 節点のラベルが {\tt{alloc}} で, この節点の親が {\tt{dealloc}}
+      ならば 0 を返し, この手続きを終了します.
+\item 節点のラベルが {\tt{dealloc}} で, 左の子 $\ell$ に対し
+      {\tt{result[$\ell$] = 0}} ならば 0 を返し, この手続きを終了します.
+\item \label{optimize048}
+      節点のラベルを {\tt{x := y $op$ z}} とするとき
+      左の子 $\ell$ に対して, {\tt{result[$\ell$]}} で {\tt{y}}
+      を置き換えます.
+\item \label{optimize049}
+      節点のラベルを {\tt{x := y $op$ z}} とするとき
+      右の子 $r$ に対して, {\tt{result[$r$]}} で {\tt{z}}
+      を置き換えます.
+\item \label{optimize050}
+      3 番地コード {\tt{x := y $op$ z}} を変換先の 3 番地コードコンテナ
+      {\tt vector<tac*> conv} にコピーします. ここで {\tt{y}}, {\tt{z}}
+      はそれぞれ手順 \ref{optimize048}, \ref{optimize049} で求められたもの
+      とします.
+\item 手順 \ref{optimize050} でコピーした 3 番地コード {x := y $op$ z} の
+      {\tt{x}} を以下の{\bf 代入判定アルゴリズム}の戻り値で更新します.
+      更新したものを改めて {\tt{x}} とします.
+\item {\tt{x}} が {\tt{0}} であるか, この節点の親がいるのならば
+      {\tt{x}} を返し, この手続きを終了します.
+\item {\tt{x}} がこの基本ブロックの出口で生きているのならば
+      {\tt{x}} を返し, この手続きを終了します.
+\item {\tt{x}} がこの後, この基本ブロックで定義される前に仕様され,
+      かつ {\tt{node[x]}} が現在の節点と一致しているのならば
+      {\tt{x}} を返し, この手続きを終了します.
+\item {\tt{x}} がこの基本ブロックの 3 番地コードで {\tt{p := \&x}} のよ
+      うにアドレスが参照されているのであれば
+      {\tt{x}} を返し, この手続きを終了します.
+\item \label{optimize057}
+      手順 \ref{optimize050} でコピーした 3 番地コードが {\tt{x := call y}}
+      で {\tt{x}} がこの後, この基本ブロックで定義される前に仕様され
+      ないのならば {\tt{call y}} に変更します.
+      {\tt{0}} を返し, この手続きを終了します.
+\item 手順 \ref{optimize050} でコピーした 3 番地コードが
+      {\tt{alloc x, y}} ならば
+      {\tt{x}} を返し, この手続きを終了します.
+\item \label{optimize056}
+      手順 \ref{optimize050} でコピーした 3 番地コードを
+      コンテナ {\tt{conv}} から削除します.
+\item \label{optimize064}
+      手順 \ref{optimize050} でコピーした 3 番地コードが
+      {\tt{x[y] := z}} ならばこの 3 番地コードと
+      この 3 番地コードが省略された位置を記録しておきます.
+\item {\tt{0}} を返し, この手続きを終了します.
+\end{enumerate}
+\end{quote}
+
+\begin{quote}
+{\bf 代入判定アルゴリズム}
+
+\begin{enumerate}
+\item 節点の識別子並び {\tt{m\_vars}} が空ならば 0 を返し, この手続きを
+      終了します.
+\item  \label{optimize067}
+      以下の {\bf 代入判定アルゴリズムにおける特別な場合(その 1)} に該当す
+      るかを調べます.
+      該当すればその戻り値を返し, この手続を終了します.
+\item \label{optimize055}
+      この節点が葉ならば識別子並び {\tt{m\_vars}} の先頭を
+      {\tt{y}} とします.
+\item \label{optimize054}
+      この節点が葉でなければ
+      識別子並びから順に, {\tt{node[y]}} がこの節点であるような {\tt{y}}
+      を検索します.
+      もしそのような {\tt{y}} があれば, さらにこの基本ブロックの出口で生き
+      ていているものを {\tt{y}} を先頭に検索します. もしあれば, それを
+      {\tt{y'}} とするとき {\tt{node[y']}} がこの節点である場合
+      改めて {\tt{y'}} を {\tt{y}} とします.
+      もしなければ, すなわち, 基本ブロックの出口で生きているものがなければ,
+      このあと定義の前に使用があるものを {\tt{y}} を先頭に検索します.
+      もしあれば, それを改めて {\tt{y}} とし, さらに  
+      識別子並びの先頭 {\tt{x}} と {\tt{y}} に対
+      して以下
+      の {\bf 代入判定アルゴリズムにおける特別な場合(その 2)} を適用します.
+
+      もし, 上記のような {\tt{y}} があり, なおかつ {\tt{y}} が
+      識別子並びの先頭 {\tt{x}} ではないのであれば
+      {\tt{x}} と {\tt{y}} に対
+      して以下
+      の {\bf 代入判定アルゴリズムにおける特別な場合(その 2)} を適用します.
+
+      もし上記のような {\tt{y}} がないのであれば
+      {\tt{m\_vars}} の先頭を {\tt{y}} とします.
+
+\item 識別子並びで {\tt{y}} の次のものからすべてに対して
+      以下を適用します.
+\begin{enumerate}
+\item \label{optimize052}
+      識別子 {\tt{x}} に対して, この節点の親のラベルが {\tt{p := \&x}}
+      ならば, 節点が葉の場合のみ 3 番地コード {\tt{x := y}} を生成します.
+\item 識別子 {\tt{x}} に対して, この節点と {\tt{node[x]}} とが一致してい
+      ないのならば代入を生成しません.
+\item \label{optimize053} 
+      {\tt{x}} がこの基本ブロックの出口で生きている場合
+      3 番地コード {\tt{x := y}} を生成します.
+\item \label{optimize110} 
+      {\tt{x}} がこの基本ブロックで {\tt{p := \&x}} のように
+      アドレスを参照されていたのならば
+      3 番地コード {\tt{x := y}} を生成します
+      (この手順と \ref{optimize052} とは手順 \ref{optimize111} で区別されます).
+\item {\tt{x}} がこのあと定義の前に使用されるのならば
+      3 番地コード {\tt{x := y}} を生成します.
+\end{enumerate}
+
+\item \label{optimize111}
+手順 \ref{optimize052} の条件「親のラベルが {\tt{p := \&x}} である」
+      が成立していたのならば,
+      {\tt{x}} を返します. そうでなければ {\tt{y}} を返します.
+\end{enumerate}
+\end{quote}
+
+\begin{quote}
+{\bf 代入判定アルゴリズムにおける特別な場合(その 1)}
+\begin{enumerate}
+\item \label{optimize072}
+      節点の識別子並びから {\tt{node[t]}} がこの節点と同一である {\tt{t}} を
+      探します. そのような {\tt{t}} がなければ
+      特別でないとして 0 を返します.
+
+\item 手順 \ref{optimize072} で識別子並びの先頭が検索された場合
+      特別でないとして 0 を返します.
+
+\item 先頭 {\tt{x}}  に対して {\tt{t := x}} を生成します.
+
+\item {\tt{t}} を返します.
+\end{enumerate}
+\end{quote}
+
+\begin{quote}
+{\bf 代入判定アルゴリズムにおける特別な場合(その 2)}
+\begin{enumerate}
+\item \label{optimize107}
+      手順 \ref{optimize054} の
+      識別子並びの先頭 {\tt{x}} と見つかった {\tt{y}} に対して
+      {\bf {\em dag} からのコード生成アルゴリズム} の手順
+      \ref{optimize064} で記録された 3 番地コードから
+      {\tt{x[y'] := z'}} なるものを検索します. なければ
+      この手続きを終了します.
+\item 変換先の 3 番地コードコンテナ
+      {\tt vector<tac*> conv} の最後の要素の前に
+      手順 \ref{optimize107} で見つかったものを
+      {\tt{y[y'] := z'}}  としてコピーします.
+\end{enumerate}
+\end{quote}
+
+これらのアルゴリズムがどのように動作するかをいくつかの例に対して
+考えてみましょう.
+
+\begin{Example}
+\label{optimize007}
+\begin{verbatim}
+int n; void f(int a, int b, int c){ n = a + b + c; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := a + b
+  t1 := t0 + c
+   n := t1
+\end{verbatim}
+3 番地コードから {\em dag} を作成する過程を図 \ref{optimize008} に
+示しました.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.468\linewidth,height=1.0\linewidth]{opt001.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.468\linewidth,height=1.0\linewidth]{opt001.eps}
+\end{latexonly}
+\caption{例 \ref{optimize007} の {\em dag}}
+\label{optimize008}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの出口
+で生きている変数は {\tt{n}} のみになります. {\tt{t1, n}} を識別子並び
+に持つ節点に対して, {\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{n}} を選択することになります. この結果
+\begin{verbatim}
+f:
+  t0 := a + b
+   n := t0 + c
+\end{verbatim}
+と変換されます.
+\end{Example}
+
+\begin{Example}
+\label{optimize009}
+\begin{verbatim}
+int f(void){ int n = 2; return n + 3; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+   n := 2
+  t0 := n + 3
+   return t0
+\end{verbatim}
+3 番地コードから {\em dag} を作成する過程を図 \ref{optimize010} に
+示しました.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.392\linewidth,height=1.0\linewidth]{opt002.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.392\linewidth,height=1.0\linewidth]{opt002.eps}
+\end{latexonly}
+\caption{例 \ref{optimize009} の {\em dag}}
+\label{optimize010}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの出口で
+生きている変数は {\tt{2, 3}} になります. 識別子並びに {\tt{2, n}} を持つ節点
+に対して, {\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{2}} を選択することになります. また {\tt{n}} に対する代入は生成されません.
+この結果
+\begin{verbatim}
+f:
+  t0 := 2 + 3
+   return t0
+\end{verbatim}
+となります. このように
+変換の結果, コンパイル時に評価することができる 3 番地コード
+が生成されることがあります. この節ではここまでの変換のみについて議論する
+ことにします.
+\end{Example}
+
+\begin{Example}
+\label{optimize011}
+\begin{verbatim}
+int n; void g(void); void f(void){ n = 2; g(); ++n; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+   n := 2
+  t0 := 2
+   call g
+   n := n + 1
+  t1 := n
+\end{verbatim}
+{\tt{call g}} を処理するまでの {\em dag} を作成する過程を
+図 \ref{optimize012} に示しました.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.530\linewidth,height=1.0\linewidth]{opt003.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.530\linewidth,height=1.0\linewidth]{opt003.eps}
+\end{latexonly}
+\caption{例 \ref{optimize011} の {\tt{call g}} を処理するまでの {\em dag}}
+\label{optimize012}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成されます. この基本ブロック
+の出口で生きている変数は {\tt{n, g, 1, 2}} になります. 
+{\bf 基本ブロックの {\em dag} 作成アルゴリズム} 手順 \ref{optimize112} で
+ {\tt{call g}} 
+において {\bf {\em dag} からのコード生成アルゴリズム} が適用されます.
+識別子並びに
+{\tt{2, n, t0}} を持つ節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{2}} を選択することになります. また {\tt{n}} に対する代入は生成されま
+すが, {\tt{t0}} に対する代入は生成されません.
+この結果, この {\em dag} は
+\begin{verbatim}
+   n := 2
+   call g
+\end{verbatim}
+のように変換されます.
+\end{Example}
+
+\begin{Example}
+\label{optimize013}
+\begin{verbatim}
+int n; void f(int* p){ n = 2; *p = 3; ++n; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+   n := 2
+  t0 := 2
+  t1 := p
+ *t1 := 3
+  t2 := 3
+   n := n + 1
+  t3 := n
+\end{verbatim}
+{\tt{*t1 := 3}} を処理するまでの {\em dag} を作成する過程を
+図 \ref{optimize014} に示しました.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.0\linewidth,height=0.729\linewidth]{opt004.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.0\linewidth,height=0.729\linewidth]{opt004.eps}
+\end{latexonly}
+を作成する過程
+\caption{例 \ref{optimize013} の {\tt{*t1 := 3}} を処理するまでの {\em dag}}
+\label{optimize014}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成されます. この基本ブロック
+の出口で生きている変数は {\tt{n, 1, 2, 3}} になります.
+{\bf 基本ブロックの {\em dag} 作成アルゴリズム} 手
+順 \ref{optimize112} で {\tt{*t1 := 3}} にお
+いて {\bf {\em dag} からのコード生成アルゴリズム} が適用されます.
+
+識別子並びに
+{\tt{2, n, t0}} を持つ節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{2}} を選択することになります. また {\tt{n}} に対する代入は生成されま
+すが, {\tt{t0}} に対する代入は生成されません.
+識別子並びに {\tt{p, t1}} を持つ節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{p}} を選択することになります. {\tt{t1}} に対する代入は生成されません.
+この結果, この {\em dag} は
+\begin{verbatim}
+   n := 2
+  *p := 3
+\end{verbatim}
+のように変換されます.
+\end{Example}
+
+\begin{Example}
+\label{optimize039}
+\begin{verbatim}
+
+int f(int a, int b)
+{ int c = a, d = b; return (a + b) + (c + d); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := a
+   c := t0
+  t1 := b
+   d := t1
+  t2 := a + b
+  t3 := c + d
+  t4 := t2 + t3
+  return t4
+\end{verbatim}
+この 3 番地コードに対する {\em dag} を図 \ref{optimize040} に示しました.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.724\linewidth,height=0.7\linewidth]{opt021.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.724\linewidth,height=0.7\linewidth]{opt021.eps}
+\end{latexonly}
+\caption{例 \ref{optimize039} の {\em dag}}
+\label{optimize040}
+\end{center}
+\end{figure}
+識別子並び {\tt{a, t0, c}} を持つ節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{a}} を選択することになります. {\tt{t0, c}} に対する代入は生成されません.
+同様に識別子並び {\tt{b, t1, d}} を持つ節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{b}} を選択することになります. {\tt{t1, d}} に対する代入は生成されません.
+識別子並び {\tt{t2, t3}} を持つ節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t2}} を選択することになります. この結果,
+\begin{verbatim}
+f:
+  t2 := a + b
+  t4 := t2 + t2
+  return t4
+\end{verbatim}
+のように変換されます.
+\end{Example}
+
+\begin{Example}
+\label{optimize041}
+\begin{verbatim}
+
+int f(int a, int b, int c, int d, int e)
+{ return (a+b+(a+b-c)*(d+e))*((a+b-c)*(d+e)-e); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := a + b
+  t1 := a + b
+  t2 := t1 - c
+  t3 := d + e
+  t4 := t2 * t3
+  t5 := t0 + t4
+  t6 := a + b
+  t7 := t6 - c
+  t8 := d + e
+  t9 := t7 * t8
+  t10 := t9 - e
+  t11 := t5 * t10
+  return t11
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize042} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.051\linewidth,height=1.0\linewidth]{opt022.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.051\linewidth,height=1.0\linewidth]{opt022.eps}
+\end{latexonly}
+\caption{例 \ref{optimize041} の {\em dag}}
+\label{optimize042}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックで構成され, この基本
+ブロックの出口で生きている変数はありません.
+識別子並び {\tt{t0, t1, t6}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t0}} を選択することになります.
+識別子並び {\tt{t2, t7}} の節点に対して
+{\bf 代入判定アルゴリズム}手順  \ref{optimize054} で
+{\tt{t2}} を選択することになります.
+識別子並び {\tt{t3, t8}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t3}} を選択することになります.
+識別子並び {\tt{t4, t9}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t4}} を選択することになります.
+この結果
+\begin{verbatim}
+f:
+  t0 := a + b
+  t2 := t0 - c
+  t3 := d + e
+  t4 := t2 * t3
+  t5 := t0 + t4
+  t10 := t4 - e
+  t11 := t5 * t10
+  return t11
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize043}
+\begin{verbatim}
+
+int x, y;
+void f(int b){ int a = b + x; b = a - y; x = b + x; y = a - y; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := b + x
+   a := t0
+  t1 := a - y
+   b := t1
+  t2 := b + x
+   x := t2
+  t3 := a - y
+   y := t3
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize044} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.7\linewidth,height=0.540\linewidth]{opt023.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.7\linewidth,height=0.540\linewidth]{opt023.eps}
+\end{latexonly}
+\caption{例 \ref{optimize043} の {\em dag}}
+\label{optimize044}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックで構成され, この基本
+ブロックの出口で生きている変数は {\tt{x, y}} です.
+識別子並び {\tt{t0, a}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t0}} を選択することになります.
+識別子並び {\tt{t1, b, t3, y}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{y}} を選択することになります.
+識別子並び {\tt{t2, y}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{y}} を選択することになります.
+この結果
+\begin{verbatim}
+f:
+  t0 := b + x
+  y := t0 - y
+  x := y + x
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize045}
+\begin{verbatim}
+
+int x, y;
+void f(int a, int b, int c){ x = a + b; a = a - c; b = b + c; y = a + b; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := a + b
+   x := t0
+  t1 := a - c
+   a := t1
+  t2 := b + c
+   b := t2
+  t3 := a + b
+   y := t3
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize046} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.7\linewidth,height=0.540\linewidth]{opt024.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.7\linewidth,height=0.540\linewidth]{opt024.eps}
+\end{latexonly}
+\caption{例 \ref{optimize045} の {\em dag}}
+\label{optimize046}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの出口で
+生きている変数は {\tt{x, y}} です.
+識別子並び {\tt{t0, x}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{x}} を選択することになります.
+識別子並び {\tt{t1, a}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t1}} を選択することになります.
+識別子並び {\tt{t2, b}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t2}} を選択することになります.
+識別子並び {\tt{t3, y}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{y}} を選択することになります. この結果
+\begin{verbatim}
+f:
+   x := a + b
+  t1 := a - c
+  t2 := b + c
+   y := t1 + t2
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize015}
+\begin{verbatim}
+int a, b, c, d; void f(void){ (a = b) + (c = d); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := b
+   a := t0
+  t1 := d
+   c := t1
+  t2 := t0 + t1
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize016} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.7\linewidth,height=0.362\linewidth]{opt005.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.7\linewidth,height=0.362\linewidth]{opt005.eps}
+\end{latexonly}
+\caption{例 \ref{optimize015} の {\em dag}}
+\label{optimize016}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの出口で
+生きている変数は {\tt{a, b, c, d}} です.
+識別子並び {\tt{b, t0, a}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{b}} を選択することになります. {\tt{t0}} に対しては
+代入は生成されません.
+これに対し {\tt{a}} に対しては代入が生成されます.
+識別子並び {\tt{d, t1, c}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{d}} を選択することになります. {\tt{t1}} に対しては
+代入は生成されません.
+これに対し {\tt{c}} に対しては代入が生成されます.
+識別子並び {\tt{t2}} の節点に対して
+{\bf {\em dag} からのコード生成アルゴリズム} 手順 \ref{optimize056} で
+{\tt{t2}} はこの基本ブロックの出口で生きていないので
+3 番地コード {\tt{t2 := a + c}} は削除されます. この結果
+\begin{verbatim}
+f:
+  a := b
+  c := d
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\begin{verbatim}
+int g(void); void f(void){ g(); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := call g
+\end{verbatim}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの出口で
+{\tt{t0}} は生きていないので,
+{\bf {\em dag} からのコード生成アルゴリズム} 手順 \ref{optimize057} で
+この 3 番地コードは {\tt{call g}} に変更されます.
+\end{Example}
+
+\begin{Example}
+\label{optimize017}
+\begin{verbatim}
+
+int g(int);
+void f(void){ int n = 2; int* p = &n; *p = 1; g(*p); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+   n := 2
+  t0 := &n
+   p := t0
+  t1 := p
+ *t1 := 1
+  t2 := 1
+  t3 := p
+  t4 := *t3
+  param t4
+  t5 := call g
+\end{verbatim}
+{\tt{*t1 := 1}} を処理するまでに作成される {\em dag} は
+図 \ref{optimize018} のようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.8\linewidth,height=0.525\linewidth]{opt007.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.8\linewidth,height=0.525\linewidth]{opt007.eps}
+\end{latexonly}
+\caption{例 \ref{optimize017} の {\tt{*t1 := 1}} を処理するまでに作成される {\em dag}}
+\label{optimize018}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロック
+の出口で生きている変数は {\tt{g, 1, 2}} です.
+識別子並び {\tt{2, n}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{2}} を選択することになります. {\tt{n}} はこの基本ブロック
+の出口で生きて
+いませんが, {\bf 代入判定アルゴリズム} 手順 \ref{optimize052} か
+ら {\tt{n}} に対して代入が生成されます. {\bf 代入判定アルゴリズム} から
+返されるのは {\tt{n}} となります.
+
+識別子並び {\tt{t0, p, t1}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{p}} がこの後使用されることから
+{\tt{p}} を選択することになります. {\tt{t1}} はこの基本ブロック
+の出口で生きていないので代入は生成されません. この結果この
+{\em dag} は
+\begin{verbatim}
+  n := 2
+  p := &n
+ *p := 1
+\end{verbatim}
+のように変換されます.
+函数 {\tt{f}} に対する最適なコードは
+\begin{verbatim}
+f:
+  param 1
+  call g
+\end{verbatim}
+ですが, この節ではここまでの変換のみについて議論する
+ことにします.
+\end{Example}
+
+\begin{Example}
+\label{optimize023}
+\begin{verbatim}
+int f(void){ int n = 2; int* p = &n; *p = 1; return *p; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+   n := 2
+  t0 := &n
+   p := t0
+  t1 := p
+ *t1 := 1
+  t2 := 1
+  t3 := p
+  t4 := *t3
+  return t4
+\end{verbatim}
+{\tt{*t1 := 1}} を処理するまでの {\em dag} は
+図 \ref{optimize024} のようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.7\linewidth,height=0.423\linewidth]{opt010.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.7\linewidth,height=0.423\linewidth]{opt010.eps}
+\end{latexonly}
+\caption{例 \ref{optimize023} の {\tt{*t1 := 1}} を処理するまでの {\em dag}}
+\label{optimize024}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロック
+の出口で生きている変数は {\tt{1, 2}} です.
+識別子並び {\tt{2, n}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{2}} を選択することになります. {\tt{n}} はこの基本ブロック
+の出口で生きてい
+ませんが, {\bf 代入判定アルゴリズム} 手順 \ref{optimize052} か
+ら {\tt{n}} に対して代入が生成されます.
+ {\bf 代入判定アルゴリズム} から
+返されるのは {\tt{n}} となります.
+
+識別子並び {\tt{t0, p, t1}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{p}} がこのあと使用されるので
+{\tt{p}} を選択することになります. {\tt{t1}} はこの基本ブロック
+の出口で生きていないので代入は生成されません. この結果この
+{\em dag} は
+\begin{verbatim}
+  n := 2
+  p := &n
+ *p := 1
+\end{verbatim}
+のように変換されます.
+函数 {\tt{f}} に対する最適なコードは
+\begin{verbatim}
+f:
+  return 1
+\end{verbatim}
+ですが, この節ではここまでの変換のみについて議論する
+ことにします.
+\end{Example}
+
+\begin{Example}
+\label{optimize019}
+\begin{verbatim}
+int g(int); void f(void){ int n = 2; int* p = &n; g(*p); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+   n := 2
+  t0 := &n
+   p := t0
+  t1 := p
+  t2 := *t1
+  param t2
+  t3 := call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize020} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.0\linewidth,height=0.507\linewidth]{opt008.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.0\linewidth,height=0.507\linewidth]{opt008.eps}
+\end{latexonly}
+\caption{例 \ref{optimize019} の {\em dag}}
+\label{optimize020}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの出口で
+生きている変数は {\tt{g, 2}} です.
+識別子並び {\tt{2, n}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{2}} を選択することになります. {\tt{n}} はこの基本ブロック
+の出口で生きていませんが, {\bf 代入判定アルゴリズム} 手順
+\ref{optimize052} から {\tt{n}} に対して代入が生成されます.
+{\bf 代入判定アルゴリズム} から
+返されるのは {\tt{n}} となります.
+識別子並び {\tt{t0, p, t1}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t0}} を選択することになります. この結果
+\begin{verbatim}
+f:
+   n := 2
+  t0 := &n
+  t2 := *t0
+  param t2
+  call g
+\end{verbatim}
+のように変換されます. 函数 {\tt{f}} に対する最適なコードは
+\begin{verbatim}
+f:
+  param 2
+  call g
+\end{verbatim}
+ですが, この節ではここまでの変換のみについて議論する
+ことにします.
+\end{Example}
+
+\begin{Example}
+\label{optimize021}
+\begin{verbatim}
+void g(int, int); void f(int x){ g(x+1,x+2); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := x + 1
+  t1 := x + 2
+  param t0
+  param t1
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize022} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.8\linewidth,height=0.470\linewidth]{opt009.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.8\linewidth,height=0.470\linewidth]{opt009.eps}
+\end{latexonly}
+\caption{例 \ref{optimize021} の {\em dag}}
+\label{optimize022}
+\end{center}
+\end{figure}
+これまでのように {\bf {\em dag} からのコード生成アルゴリズム}
+を適用する変換前と同じ 3 番地コードに変換されることになります.
+\ref{_3ac000} で述べたように {\tt{param}} は {\tt{call}} の直前に
+生成されることをフロントエンドが保証しますが, 変換後もやはりこの順序は
+保証されています.
+\end{Example}
+
+\begin{Example}
+\label{optimize025}
+\begin{verbatim}
+void f(int* p){ --*p; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := p
+  t1 := *t0
+  t1 := t1 - 1
+ *t0 := t1
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize026} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.7\linewidth,height=0.552\linewidth]{opt011.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.7\linewidth,height=0.552\linewidth]{opt011.eps}
+\end{latexonly}
+\caption{例 \ref{optimize025} の {\em dag}}
+\label{optimize026}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの出口で
+生きている変数は {\tt{1}} です.
+識別子並び {\tt{p, t0}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{p}} を選択することになります. {\tt{t0}} はこの基本ブロック
+の出口で生きていていないので, 代入は生成されません.
+この結果
+\begin{verbatim}
+f:
+  t1 := *p
+  t1 := t1 - 1
+  *p := t1
+\end{verbatim}
+と変換されます.
+\end{Example}
+
+\begin{Example}
+\label{optimize027}
+\begin{verbatim}
+void g(double, int, int);
+void f(double d){ int a = (int)d; int b = a; g(d,a,b); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := (int)d
+   a := t0
+  t1 := a
+   b := t1
+  t2 := d
+  t3 := a
+  t4 := b
+  param t2
+  param t3
+  param t4
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize028} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.0\linewidth,height=0.483\linewidth]{opt012.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.0\linewidth,height=0.483\linewidth]{opt012.eps}
+\end{latexonly}
+\caption{例 \ref{optimize027} の {\em dag}}
+\label{optimize028}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの出口で
+生きている変数は {\tt{g}} です.
+識別子並び {\tt{d, t2}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{d}} を選択することになります. {\tt{t2}} はこの基本ブロック
+の出口で生きていていないので, 代入は生成されません.
+識別子並び {\tt{t0, a, t1, b, t3, t4}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t0}} を選択することになります.
+この結果
+\begin{verbatim}
+f:
+  t0 := (int)d
+  param d
+  param t0
+  param t0
+  call g
+\end{verbatim}
+のように変換されます.
+\end{Example}
+
+\begin{Example}
+\label{optimize029}
+\begin{verbatim}
+int n; int g(int); void f(void){ n = 2; n = g(3); ++n; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+   n := 2
+  t0 := 2
+  param 3
+  t1 := call g
+   n := t1
+   n := n + 1
+  t2 := n
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize030} の
+ようになります. {\tt{t1 := call g}} を処理するまでに上半分の
+{\em dag} が作成され, それ以降下半分の {\em dag} が作成されます.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.8\linewidth,height=0.571\linewidth]{opt013.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.8\linewidth,height=0.571\linewidth]{opt013.eps}
+\end{latexonly}
+\caption{例 \ref{optimize029} の {\em dag}}
+\label{optimize030}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, 最初の基本ブロック
+のこの基本ブロックの出口で生きている変数は {\tt{g, n, 1, 2, 3}} です.
+識別子並び {\tt{2, n, t0}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{2}} を選択することになります. {\tt{n}} はこの基本ブロック
+の出口で生きているので代入が生成されますが, {\tt{t0}} は
+この基本ブロック
+の出口で生きていないので代入は生成されません.
+この結果図 \ref{optimize029} の上半分の {\em dag} は
+\begin{verbatim}
+   n := 2
+  pamar 3
+  t1 := call g
+\end{verbatim}
+のように変換されます.
+識別子並び {\tt{t1, n}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t1}} を選択することになります. {\tt{n}} はこの基本ブロック
+の出口で生きていますが, {\tt{node[n]}} がこの節点ではないので
+代入は生成されません.
+識別子並び {\tt{n, t2}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} で
+{\tt{n}} を選択することになります. {\tt{t2}} はこの基本ブロック
+の出口で生きていないので代入は生成されません.
+この結果図 \ref{optimize029} の下半分の {\em dag} は
+\begin{verbatim}
+   n := t1 + 1
+\end{verbatim}
+のように変換されます. 函数 {\tt{f}} は結局
+\begin{verbatim}
+f:
+   n := 2
+  pamar 3
+  t1 := call g
+   n := t1 + 1
+\end{verbatim}
+のように変換されます.
+\end{Example}
+
+\begin{Example}
+\label{optimize031}
+\begin{verbatim}
+void g(char*); void f(void){ char s[] = "abc"; g(s); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+    t0 := &"abc"
+  s[0] := 'a'
+  s[1] := 'b'
+  s[2] := 'c'
+  s[3] := '\0'
+    t1 := &s
+    t2 := t1
+    param t2
+    call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize032} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.859\linewidth,height=1.0\linewidth]{opt016.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.859\linewidth,height=1.0\linewidth]{opt016.eps}
+\end{latexonly}
+\caption{例 \ref{optimize031} の {\em dag}}
+\label{optimize032}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され
+この基本ブロックの出口で生きている変数は
+{\tt{g, "abc", 0, 1, 2, 3, 'a', 'b', 'c', '\verb|\|0'}} です.
+ここで親を持たない {\tt{loff}} をラベルとする 3 つの
+節点について考えてみます. {\tt{s}} はこの基本ブロックの出口で
+生きていないわけですから, {\tt{loff}} でないラベルであれば
+省略できたかもしれません. しかし, 函数 {\tt{g}} への引数を
+{\tt{s}} のアドレスとしている限り, これらは省略できないことが
+分かりま
+す. {\bf {\em dag} からのコード生成アルゴリズム} 手順 \ref{optimize064} で
+このように {\tt{x[y] := z}} を特別に扱っているのはこのような理由
+があるからです. 変換後
+\begin{verbatim}
+f:
+  s[0] := 'a'
+  s[1] := 'b'
+  s[2] := 'c'
+  s[3] := '\0'
+  t1 := &s
+  param t1
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize033}
+\begin{verbatim}
+void g(int); void f(void){ int n = 1; n = 2; g(n); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+   n := 1
+   n := 2
+  t0 := 2
+  t1 := n
+  param t1
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize034} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.8\linewidth,height=0.247\linewidth]{opt018.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.8\linewidth,height=0.247\linewidth]{opt018.eps}
+\end{latexonly}
+\caption{例 \ref{optimize033} の {\em dag}}
+\label{optimize034}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成されていますが,
+この基本ブロックの出口で生きている変数は {\tt{g, 1, 2}} です.
+変換後
+\begin{verbatim}
+f:
+  param 2
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize037}
+\begin{verbatim}
+void g(int*, int*); void f(void){ int i[2]; g(&i[0],&i[1]); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := &i
+  t1 := &i
+  t1 := t1 + 4
+  param t0
+  param t1
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize038} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.0\linewidth,height=0.623\linewidth]{opt020.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.0\linewidth,height=0.623\linewidth]{opt020.eps}
+\end{latexonly}
+\caption{例 \ref{optimize037} の {\em dag}}
+\label{optimize038}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成されていますが,
+この基本ブロックの出口で生きている変数は {\tt{g, 4}} です.
+
+識別子並び {\tt{t0, t1}} の節点に対して
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
+{\tt{t0}} を選択することになります. この結果
+\begin{verbatim}
+f:
+  t0 := &i
+  t1 := t0 + 4
+  param t0
+  param t1
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize065}
+\begin{verbatim}
+int n; void g(int); void f(void){ g(n++); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := n
+   n := n + 1
+  param t0
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize066} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.0\linewidth,height=0.328\linewidth]{opt027.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.0\linewidth,height=0.328\linewidth]{opt027.eps}
+\end{latexonly}
+\caption{例 \ref{optimize065} の {\em dag}}
+\label{optimize066}
+\end{center}
+\end{figure}
+識別子並び {\tt{n, t0}} の節点に対して {\bf 代入判定アルゴリズム} を
+適用すると, {\tt{node[n]}} はこの節点と一致しませんが, {\tt{node[t0]}}
+がこの節点と一致するので
+{\bf 代入判定アルゴリズムにおける特別な場合(その 1)} に該当
+します. この結果 {\tt{t0}} に対する代入が生成されます. 変換後,
+\begin{verbatim}
+f:
+  t0 := n
+   n := t0 + 1
+  param t0
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize068}
+\begin{verbatim}
+
+struct S { unsigned int a : 1; unsigned int b : 2; };
+extern struct S s; unsigned int f(void){ return s.a + s.b; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := s[0]
+  t1 := t0 & 1
+  t2 := s[0]
+  t3 := t2 >> 1
+  t4 := t3 & 3
+  t5 := t1 + t4
+  return t5
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize069} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.826\linewidth,height=1.0\linewidth]{opt028.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.826\linewidth,height=1.0\linewidth]{opt028.eps}
+\end{latexonly}
+\caption{例 \ref{optimize068} の {\em dag}}
+\label{optimize069}
+\end{center}
+\end{figure}
+これまで通り {\bf {\em dag} からのコード生成アルゴリズム} を適用すると
+{\tt{s[0]}} の部分式を共通化できます. 変換後,
+\begin{verbatim}
+f:
+  t0 := s[0]
+  t1 := t0 & 1
+  t3 := t0 >> 1
+  t4 := t3 & 3
+  t5 := t1 + t4
+  return t5
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize070}
+\begin{verbatim}
+int f(void){ static int s; return s++; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := s
+   s := s + 1
+  return t0
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize071} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.8\linewidth,height=0.347\linewidth]{opt029.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.8\linewidth,height=0.347\linewidth]{opt029.eps}
+\end{latexonly}
+\caption{例 \ref{optimize070} の {\em dag}}
+\label{optimize071}
+\end{center}
+\end{figure}
+識別子並び {\tt{s, t0}} の節点に対して
+{\bf 代入判定アルゴリズム} を適用すると,
+{\tt{node[s]}} はこの節点と一致しませんが, {\tt{node[t0]}}
+がこの節点と一致するので
+{\bf 代入判定アルゴリズムにおける特別な場合(その 1)} に該当
+します. この結果 {\tt{t0}} に対する代入が生成されます. 変換後,
+\begin{verbatim}
+f:
+  t0 := s
+   s := t0 + 1
+  return t0
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize073}
+\begin{verbatim}
+
+struct S { int m; int n; }; void g(struct S);
+void f(void){ struct S x, y = { 1, 2 }; x = y; g(x); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  y[0] := 1
+  y[4] := 2
+    t0 := y
+     x := t0
+    t1 := x
+  param t1
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize074} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.0\linewidth,height=0.439\linewidth]{opt030.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.0\linewidth,height=0.439\linewidth]{opt030.eps}
+\end{latexonly}
+\caption{例 \ref{optimize073} の {\em dag}}
+\label{optimize074}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックからなり, この基本ブロック
+の出口で生きている変数は {\tt{g, 0, 1, 2, 4}} です.
+このため {\tt{y[0] := 1}} をラベルとする節点に
+対してコードは生成されません.
+しかし識別子並び {\tt{y, t0, x, t1}} の節点に対して
+{\tt{y[4] := 2}} を生成する前に
+{\bf {\em dag} からのコード生成アルゴリズム} 手順
+\ref{optimize108} で, 生成されなかった {\tt{y[0] := 1}} が
+生成されることになります. 変換後,
+\begin{verbatim}
+f:
+  y[0] := 1
+  y[4] := 2
+  param y
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize077}
+\begin{verbatim}
+
+void g(int, int*, int*);
+void f(void)
+{ int a = 0; int b = 1; int c = 2; g(a,&b,&c); ++a; g(a,&b,&c); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  a := 0
+  b := 1
+  c := 2
+  t0 := &b
+  t1 := &c
+  t2 := a
+  param t2
+  param t0
+  param t1
+  call g
+  a := a + 1
+  t3 := a
+  t4 := &b
+  t5 := &c
+  t6 := a
+  param t6
+  param t4
+  param t5
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize078} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.0\linewidth,height=0.894\linewidth]{opt032.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.0\linewidth,height=0.894\linewidth]{opt032.eps}
+\end{latexonly}
+\caption{例 \ref{optimize077} の {\em dag}}
+\label{optimize078}
+\end{center}
+\end{figure}
+これまで通り {\bf {\em dag} からのコード生成アルゴリズム} を適用すると
+以下のように変換されます.
+\begin{verbatim}
+f:
+  a := 0
+  b := 1
+  c := 2
+  t0 := &b
+  t1 := &c
+  param 0
+  param t0
+  param t1
+  call g
+  a := a + 1
+  t4 := &b
+  t5 := &c
+  param a
+  param t4
+  param t5
+  call g
+\end{verbatim}
+\end{Example}
+
+\begin{Example}
+\label{optimize079}
+\begin{verbatim}
+
+void g(void); struct S { int a; }; void h(struct S);
+void f(struct S y){ struct S x = { 1 }; g(); x = y; h(x); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  x[0] := 1
+  call g
+  t0 := y
+  x := t0
+  t1 := x
+  param t1
+  call h
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize080} の
+ようになります. {\tt{call g}} を処理するまでに作成される {\em dag} が
+上半分で, それ以降に作成される {\em dag} が下半分になります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.6\linewidth,height=0.6\linewidth]{opt033.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.6\linewidth,height=0.6\linewidth]{opt033.eps}
+\end{latexonly}
+\caption{例 \ref{optimize079} の {\em dag}}
+\label{optimize080}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロック
+の出口では {\tt{x}} は生きていません. このため図 \ref{optimize080} の
+上半分の {\em dag} に対して
+{\tt{x[0] := 1}} は生成されません.
+図 \ref{optimize080} の下半分の {\em dag} に対して
+識別子並び {\tt{y, t0, x, t1}} を
+もつ節点については
+{\bf 代入判定アルゴリズム} 手順 \ref{optimize055} により
+{\tt{y}} が選択され, 他の識別子に対しては代入が生成されません. 変換後,
+\begin{verbatim}
+f:
+  call g
+  param y
+  call h
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize081}
+\begin{verbatim}
+
+struct S { int a; }; void g(struct S);
+void f(struct S y){ struct S x = { 1 }; g(x); x = y; g(x); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  x[0] := 1
+  t0 := x
+  param t0
+  call g
+  t1 := y
+  x := t1
+  t2 := x
+  param t2
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize082} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.493\linewidth,height=0.6\linewidth]{opt034.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.493\linewidth,height=0.6\linewidth]{opt034.eps}
+\end{latexonly}
+\caption{例 \ref{optimize081} の {\em dag}}
+\label{optimize082}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成されます.
+図 \ref{optimize082} の下半分の {\em dag} に
+おける識別子並び {\tt{y, t1, x, t2}}
+をもつ節点に {\bf 代入判定アルゴリズム} を適用すると,
+この基本ブロックの出口で {\tt{t1, x, t2}} は生きていないので
+これらに対する代入は生成されないことになります. 変換後,
+\begin{verbatim}
+f:
+  x[0] := 1
+  param x
+  call g
+  param y
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize083}
+\begin{verbatim}
+void g(int); int x[3][5]; void f(void){ g(x[2][3]); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := &x
+  t1 := t0 + 40
+  t2 := x[52]
+  param t2
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize084} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.0\linewidth,height=0.509\linewidth]{opt035.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.0\linewidth,height=0.509\linewidth]{opt035.eps}
+\end{latexonly}
+\caption{例 \ref{optimize083} の {\em dag}}
+\label{optimize084}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックからなり, この基本ブロックの出口で
+{\tt{t0, t1, t2}} は生きていません. 
+これまで通り {\bf {\em dag} からのコード生成アルゴリズム} を適用すると
+以下のように変換されます.
+\begin{verbatim}
+f:
+  t0 := &x
+  t2 := x[52]
+  param t2
+  call g
+\end{verbatim}
+{\tt{t0 := \&x}} は
+{\bf 基本ブロックの {\em dag} 作成アルゴリズム} と
+{\bf {\em dag} からのコード生成アルゴリズム} を再び適用することにより
+生成しないことができるでしょう.
+\end{Example}
+
+\begin{Example}
+\label{optimize075}
+\begin{verbatim}
+
+extern int a[];
+void f(int i, int j){ int x = a[i]; a[i] = a[j]; a[j] =	x; }
+\end{verbatim}
+sizeof(int) = 4 とすると, 3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+    t0 := i << 2
+    t1 := a[t0]
+     x := t1
+    t2 := i << 2
+    t3 := j << 2
+    t4 := a[t3]
+ a[t2] := t4
+    t5 := j << 2
+    t6 := x
+ a[t5] := t6
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize076} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.0\linewidth,height=1.069\linewidth]{opt031.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=1.0\linewidth,height=1.069\linewidth]{opt031.eps}
+\end{latexonly}
+\caption{例 \ref{optimize075} の {\em dag}}
+\label{optimize076}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの
+出口で生きている変数は {\tt{a, 2}} です. これまで通り
+{\tt{dag::all}} を順に評価することに気を付けると以下のように変換されます.
+\begin{verbatim}
+f:
+    t0 := i << 2
+    t1 := a[t0]
+    t3 := j << 2
+    t4 := a[t3]
+ a[t0] := t4
+ a[t3] := t1
+\end{verbatim}
+\end{Example}
+
+\begin{Example}
+\label{optimize085}
+\begin{verbatim}
+void g(int); void f(void){ int a; int* p = &a; a = 3; g(*p); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := &a
+   p := t0
+   a := 3
+  t1 := 3
+  t2 := p
+  t3 := *t2
+  param t3
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize086} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.7\linewidth,height=0.529\linewidth]{opt036.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.7\linewidth,height=0.529\linewidth]{opt036.eps}
+\end{latexonly}
+\caption{例 \ref{optimize085} の {\em dag}}
+\label{optimize086}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの出口
+で生きている変数は {\tt{g, 3}} です. 識別子並び {\tt{3, a, t1}} を
+もつ節点に {\bf 代入判定アルゴリズム} を適用すると手順
+ \ref{optimize110} で {\tt{a}} はアドレスを参照されているので
+{\tt{a}} に対して代入 {\tt{a := 3}} が生成されます. 変換後,
+\begin{verbatim}
+f:
+  t0 := &a
+   a := 3
+  t3 := *t3
+  param t3
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize087}
+\begin{verbatim}
+void g(int**); void f(void){ int n = 1; int* p = &n; g(&p); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  n := 1
+  t0 := &n
+  p := t0
+  t1 := &p
+  param t1
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize088} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.392\linewidth,height=0.5\linewidth]{opt037.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.392\linewidth,height=0.5\linewidth]{opt037.eps}
+\end{latexonly}
+\caption{例 \ref{optimize087} の {\em dag}}
+\label{optimize088}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, この基本ブロックの出口
+で生きている変数は {\tt{g, 1}} です. 識別子並び {\tt{1, n}} の節点に
+対して {\bf 代入判定アルゴリズム} を適用すると, 親の節点のラベルが
+{\tt{p := \&n}} で, かつこの節点が葉であることから {\tt{n := 1}} が
+生成されます. 一方, 識別子並び {\tt{t0, p}} の節点に
+ {\bf 代入判定アルゴリズム} を適用すると, 親の節点のラベルが
+{\tt{t1 := \&p}} ですが, この節点は葉ではないので {\tt{p := t0}} は
+生成されません. 変換後,
+\begin{verbatim}
+f:
+  n := 1
+  p := &n
+  t1 := &p
+  param t1
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize089}
+\begin{verbatim}
+
+void g(double);
+void f(int n, int j){ double a[n]; g(1.0); a[j] = 2.0; g(a[j]); }
+\end{verbatim}
+sizeof(double) = 8 とすると 3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := n
+  t1 := t0 << 3
+  alloc a, t1
+  param 1.0
+  call g
+  t2 := j << 3
+  a[t2] := 2.0
+  t3 := 2.0
+  t4 := j << 3
+  t5 := a[t4]
+  param t5
+  call g
+  dealloc a, t1
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize090} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.392\linewidth,height=0.5\linewidth]{opt038.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.928\linewidth,height=1.0\linewidth]{opt038.eps}
+\end{latexonly}
+\caption{例 \ref{optimize089} の {\em dag}}
+\label{optimize090}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成されます.
+この基本ブロックの出口で生きている変数は {\tt{g, 1.0, 2.0, 3}} です.
+
+図 \ref{optimize090} の真ん中の {\em dag} において, 3 番地コー
+ド {\tt{t5 := a[t4]}} に対応する節点
+は, {\bf 基本ブロックの {\em dag} 作成アルゴリズム}手順
+ \ref{optimize109} から識別子並び {\tt{2.0, t3}} をもつ節点となります.
+変換後,
+\begin{verbatim}
+f:
+  t1 := n << 3
+  alloc a, t1
+  param 1.0
+  call g
+  t2 := j << 3
+  a[t2] := 2.0
+  param 2.0
+  call g
+  dealloc a, t1
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize091}
+\begin{verbatim}
+
+float* g(int); struct S { int n; float* v; };
+struct S f(int n){ struct S s; s.n = n; s.v = g(n); return s; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := n
+  s[0] := t0
+  t1 := n
+  param t1
+  t2 := call g
+  s[4] := t2
+  t3 := s
+  return t3
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize096} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.8\linewidth,height=0.648\linewidth]{opt039.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.8\linewidth,height=0.648\linewidth]{opt039.eps}
+\end{latexonly}
+\caption{例 \ref{optimize090} の {\em dag}}
+\label{optimize096}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成されます.
+この基本ブロックで生きている変数は {\tt{g, 0, 4}} です.
+
+図 \ref{optimize090} の上半分の {\em dag} で
+ラベルが {\tt{s[0] := t0}} である
+節点について
+{\bf {\em dag} からのコード生成アルゴリズム} を適用すると,
+{\tt{s}} はこの基本ブロックの出口で生きていないので
+コードは生成されません. しかし手順 \ref{optimize064} で
+この 3 番地コードが記録されます.
+
+図 \ref{optimize090} の下半分の {\em dag} で
+ラベルが {\tt{s[4] := t2}} である
+節点について {\bf {\em dag} からのコード生成アルゴリズム} を適用すると,
+手順 \ref{optimize108} で 
+図 \ref{optimize090} の上半分の {\em dag} で
+生成
+されなかったが, 記録された 3 番地コードを生成することになります.
+変換後,
+\begin{verbatim}
+f:
+  param n
+  t2 := call g
+  s[0] := n
+  s[4] := t2
+  return t3
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize092}
+\begin{verbatim}
+
+struct S { int m, n; };
+struct S f(int x){ return x ? (struct S){1, 2} : (struct S){7, 8}; }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  if x == 0 goto label0
+  .comp0[0] := 1
+  .comp0[4] := 2
+  t0 := .comp0
+  goto label1
+  label0:
+  .comp3[0] := 7
+  .comp3[4] := 8
+  t0 := .comp3
+  label1:
+  return t0
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize093} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.857\linewidth,height=1.0\linewidth]{opt040.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.857\linewidth,height=1.0\linewidth]{opt040.eps}
+\end{latexonly}
+\caption{例 \ref{optimize092} の {\em dag}}
+\label{optimize093}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 4 つの基本ブロックから構成されます.
+2 つ目と 3 つ目の基本ブロックの出口で {\tt{t0}} が生きてい
+ます.
+
+2 つ目の基本ブロックについて考えてみます.
+ラベル {\tt{.comp0[0] := 1}} をもつ節点に対して
+{\bf {\em dag} からのコード生成アルゴリズム} を適用すると
+{\tt{.comp0}} はこの基本ブロックの出口で生きていないので
+コードは生成されませんが, 手順 \ref{optimize064} で
+この 3 番地コードが記録されます.
+識別子並び {\tt{.comp0, t0}} をもつ節点に対して
+{\bf 代入判定アルゴリズム} を適用すると
+{\tt{t0}} がこの基本ブロックの出口で生きているので
+{\bf 代入判定アルゴリズムにおける特別な場合(その 2)} に該当すること
+が分かります. すなわち, 生成はされなかったが記録されている
+3 番地コード {\tt{.comp0[0] := 1}} を {\tt{t0[0] := 1}} に
+変更します. これより変換後
+\begin{verbatim}
+f:
+  if x == 0 goto label0
+  t0[0] := 1
+  t0[4] := 2
+  goto label1
+label0:
+  t0[0] := 7
+  t0[4] := 8
+label1:
+  return t0
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize094}
+\begin{verbatim}
+
+void g(int*); void h(void);
+void f(void){ int a; int* p = &a; g(p); a = 3; h(); g(p); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := &a
+   p := t0
+  t1 := p
+  param t1
+  call g
+   a := 3
+  t2 := 3
+  call h
+  t3 := p
+  param t3
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize095} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.496\linewidth,height=1.0\linewidth]{opt041.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.496\linewidth,height=1.0\linewidth]{opt041.eps}
+\end{latexonly}
+\caption{例 \ref{optimize094} の {\em dag}}
+\label{optimize095}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成されます.
+図 \ref{optimize095} の真ん中の {\em dag} において
+識別子並び {\tt{3, a, t2}}
+をもつ節点に対して
+{\bf 代入判定アルゴリズム} を適用すると
+{\tt{a}} はこの基本ブロックの出口で生きてはいませんが,
+図 \ref{optimize095} の上の {\em dag} において
+ {\tt{t0 := \&a}} として
+アドレスが参照されているので, 手順 \ref{optimize110}
+により代入 {\tt{a := 3}} が生成されることになります.
+変換後
+\begin{verbatim}
+f:
+   p := &a
+  param p
+  call g
+   a := 3
+  call h
+  param p
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize099}
+\begin{verbatim}
+
+void g(int*);
+void f(void)
+{ int a[3]; int* p = &a[0]; for ( int i = 0 ; i != 3 ; ++i ) a[i] = i; g(p); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := &a
+  p := t0
+  i := 0
+  label0:
+  if i == 3 goto label1
+  t1 := i << 2
+  t2 := i
+  a[t1] := t2
+  i := i + 1
+  t3 := i
+  goto label0
+  label1:
+  t4 := p
+  param t4
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize100} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.619\linewidth,height=1.2\linewidth]{opt043.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.619\linewidth,height=1.2\linewidth]{opt043.eps}
+\end{latexonly}
+\caption{例 \ref{optimize099} の {\em dag}}
+\label{optimize100}
+\end{center}
+\end{figure}
+これまで通り
+{\bf {\em dag} からのコード生成アルゴリズム}
+を適用すると
+\begin{verbatim}
+f:
+  p := &a
+  i := 0
+label0:
+  if i == 3 goto label1
+  t2 := i
+  t1 := t2 << 2
+  a[t1] := t2
+  i := t2 + 1
+  goto label0
+label1:
+  param p
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize101}
+\begin{verbatim}
+
+void g(int);
+void f(int i, int j){ g((i++) > (j++) ? (i++) : (j++)); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := i
+  i := i + 1
+  t1 := j
+  j := j + 1
+  if t0 <= t1 goto label0
+  t2 := i
+  i := i + 1
+  t3 := t2
+  goto label1
+  label0:
+  t4 := j
+  j := j + 1
+  t3 := t4
+  label1:
+  param t3
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize102} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.556\linewidth,height=1.1\linewidth]{opt044.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.556\linewidth,height=1.1\linewidth]{opt044.eps}
+\end{latexonly}
+\caption{例 \ref{optimize101} の {\em dag}}
+\label{optimize102}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 4 つの基本ブロックから構成されます.
+1 つ目の基本ブロックの出口で生きている変数は {\tt{g, 1, i, j}},
+2 つ目, 3 つ目の基本ブロックの出口で生きている変数は {\tt{g, 1, t3}},
+4 つ目の基本ブロックの出口で生きている変数は {\tt{g, 1}}
+です.
+
+1 つ目の基本ブロックにおける識別子並び {\tt{i, t0}} をもつ節点, 
+1 つ目の基本ブロックにおける識別子並び {\tt{j, t1}} をもつ節点, 
+2 つ目の基本ブロックにおける識別子並び {\tt{i, t2, t3}} をもつ節点, 
+3 つ目の基本ブロックにおける識別子並び {\tt{j, t4, t3}} をもつ節点は
+それぞれ {\bf 代入判定アルゴリズムにおける特別な場合(その 1)} に該当
+します. また 2 つ目, 3 つ目の基本ブロックの出口で {\tt{i, j}} は生きてい
+ません. 変換後
+\begin{verbatim}
+f:
+  t0 := i
+  i := t0 + 1
+  t1 := j
+  j := t1 + 1
+  if t0 <= t1 goto label0
+  t3 := i
+  goto label1
+label0:
+  t3 := j
+label1:
+  param t3
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize103}
+\begin{verbatim}
+
+void g(int, int);
+void f(int x, int y)
+{ int* ip = &x; int* iq = &y; iq = ip; g(x,y); *iq = 5; g(x,y); }
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  t0 := &x
+  ip := t0
+  t1 := &y
+  iq := t1
+  t2 := ip
+  iq := t2
+  t3 := x
+  t4 := y
+  param t3
+  param t4
+  call g
+  t5 := iq
+  *t5 := 5
+  t6 := 5
+  t7 := x
+  t8 := y
+  param t7
+  param t8
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize104} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.788\linewidth,height=0.8\linewidth]{opt045.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.788\linewidth,height=0.8\linewidth]{opt045.eps}
+\end{latexonly}
+\caption{例 \ref{optimize103} の {\em dag}}
+\label{optimize104}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成されます.
+図 \ref{optimize104} の上の {\em dag} について考えてみましょう.
+識別子並び {\tt{t0, ip, t2, iq}} をもつ節点
+に対して {\bf 代入判定アルゴリズム} を適用すると
+{\tt{iq}} を選択し, 結果 {\tt{iq := \&x}} が生成されます.
+一方, 識別子並び {\tt{t1, iq}} をもつ節点
+に対して {\bf 代入判定アルゴリズム} を適用すると
+{\tt{node[iq]}} とこの節点が一致しないので
+{\tt{t1}} が選択されます. {\tt{t1}} はこの基本ブロックの出口
+で生きていないので, 結果 {\tt{t1 := \&y}} は生成されません.
+変換後
+\begin{verbatim}
+f:
+  iq := &x
+  param x
+  param y
+  call g
+  *iq := 5
+  param x
+  param y
+  call g
+\end{verbatim}
+となります.
+\end{Example}
+
+\begin{Example}
+\label{optimize105}
+\begin{verbatim}
+
+
+#include <stdarg.h>
+
+void g(int);
+
+void f(char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap,fmt);
+  char* p = fmt;
+  g(va_arg(ap,int));
+  g(*p);
+}
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+  ap := &fmt
+  ap := ap + 4
+  t0 := fmt
+  p := t0
+  t1 := va_arg ap ,int
+  param t1
+  call g
+  t2 := p
+  t3 := *t2
+  t4 := (int)t3
+  param t4
+  call g
+\end{verbatim}
+3 番地コードから {\em dag} を作成すると図 \ref{optimize106} の
+ようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=0.546\linewidth,height=1.2\linewidth]{opt046.png}
+\end{htmlonly}
+\begin{latexonly}
+\includegraphics[width=0.546\linewidth,height=1.2\linewidth]{opt046.eps}
+\end{latexonly}
+\caption{例 \ref{optimize105} の {\em dag}}
+\label{optimize106}
+\end{center}
+\end{figure}
+函数 {\tt{f}} は 1 つの基本ブロックから構成されます. 
+図 \ref{optimize106} の上半分の {\em dag} について
+考えてみます.
+識別子並び {\tt{fmt, t0, p}} をもつ節点
+に {\bf 代入判定アルゴリズム} を適用すると {\tt{fmt}} はこの基本ブロック
+の出口で生きていませんが, この節点の親のラベル {\tt{ap = \&fmt}} により
+アドレスが参照されているので選択されます. {\tt{p}} はこの後使用される
+ので, 代入 {\tt{p := fmt}} が生成されます. 変換後
+\begin{verbatim}
+f:
+  p := fmt
+  ap := &fmt
+  ap := ap + 4
+  t1 := va_arg ap ,int
+  param t1
+  call g
+  t3 := *p
+  t4 := (int)t3
+  param t4
+  call g
+\end{verbatim}
+となります.
+\end{Example}

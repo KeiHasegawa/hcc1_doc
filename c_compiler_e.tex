@@ -1,0 +1,87 @@
+\documentclass{report}
+
+\usepackage{graphicx}
+\usepackage{makeidx}
+\usepackage{html}
+\usepackage{color}
+
+\newtheorem{QandA}{Question}[chapter]
+\newtheorem{Example}{Example}[chapter]
+\def\Rubyt#1#2{
+  \mbox{$\displaystyle \mathop{\mbox{#1}}^{\mbox{\tiny #2}}$}
+}
+
+\def\MARU#1{\leavevmode \setbox0\hbox{$\bigcirc$}
+\copy0\kern-\wd0 \hbox to\wd0{\hfil{#1}\hfil}}
+
+\makeindex
+
+\begin{document}
+
+\title{C Compiler}
+
+\author{Kei Hasegawa}
+
+\date{March 14, 2019}
+
+\maketitle
+
+\input{read_e}
+
+\tableofcontents
+
+\chapter{Frontend \& backend}
+
+\input{front_back_e}
+
+\chapter{Lexical analisis \& syntax analisis}
+
+\input{lex_yacc_e}
+
+\chapter{Symbol table}
+
+\input{symtab_e}
+
+\chapter{3 address code}
+
+\input{3ac_e}
+
+\chapter{Type}
+
+\input{type_e}
+
+\chapter{Declaration}
+
+\input{decl_e}
+
+\chapter{Expression}
+
+\input{expr_e}
+
+\chapter{Statement}
+
+\input{stmt_e}
+
+\chapter{Compile speed}
+
+\input{speed_e}
+
+\chapter{Optimization}
+
+\input{optimize_e}
+
+\appendix
+\begin{htmlonly}
+\chapter{Lexicography and grammer}
+\input{grammer_e}
+
+\chapter{PDF of this document}
+\input{pdf_e}
+\end{htmlonly}
+  
+\chapter{Revision Log}
+\input{revision_e}
+
+\input{reference_e}
+
+\end{document}

@@ -1,0 +1,227 @@
+\section{ヒープの扱い}
+
+動的なメモリ確保ルーチン {\tt{malloc}} や {\tt{new}} 等
+で確保したメモリをどのタイミングで開放するか, 永久に保持しつづけるか
+という問題があります. コンパイラが正確にかつ高速に動作するために
+必要になります.
+
+フロントエンドで動的にメモリ確保しそこに何かを配置
+したとき, それが一時的なものであるか永続
+的なものであるかを考えてみます. 函数の外側のスコープに現れるもの
+すべては永続的であると言えます. そこで以下の節では, 函数の内側の
+スコープに現れるもので, 一時的であるものと永続的であるものとを考えてみま
+しょう.
+
+\subsection{型}
+
+\ref{type001} 章では型を {\em dag} で表現する方法を述べました.
+{\em dag} で表現することによって, すでにその型が作られていて
+型テーブルにあった場合, その型は新たに作られず, 以前作成したものを
+再利用しました. この型テーブルから
+1 つの函数のコンパイルが終了したときに, 一時的なものは開放される必要が
+あります. 例えば
+\begin{verbatim}
+void f(void)
+{
+  struct S {
+    ...
+  };
+  const struct S cs;
+  struct S* ps;
+  ...
+}
+\end{verbatim}
+フロントエンドは {\tt{f}} のボディに相当するブロックに
+{\tt{struct\,\,S}} を結びつけ, このブロックを開放するときに
+{\tt{struct\,\,S}} の型表現を開放することになります.
+また, \ref{type002} で述べた {\tt{const\_type}} の型テーブル
+から, {\tt{const\,\,struct\,\,S}}
+に対する型を取り除き, その型表現を開放することになります.
+同様に \ref{type003} で述べた {\tt{pointer\_type}} の型テーブル
+から {\tt{struct\,\,S*}} に
+に対する型を取り除き, その型表現を開放することになります.
+
+\subsubsection{タグ関連型}
+
+これらの型をどのように表現するかについて \ref{type010} で
+述べました.
+C 言語では, 函数のパラメータスコープでタグ関連型を宣言することが
+認められています.
+\begin{verbatim}
+struct S { long int x; unsigned char y[8]; };
+
+void f(struct S { int a; double b; }* ps)
+// ::S とは異なるタグ S を宣言しています
+{
+  // ps->a, ps->b を使用できます.
+}
+\end{verbatim}
+函数 {\tt{f}} のパラメータスコープが一時的であるからといって
+これを削除するときに {\tt{struct\,\,S}} の型表現やそれへの
+ポインタの型表現を削除すると問題が起こります. この理由は
+函数 {\tt{f}} が翻訳単位(ファイル)の最後まで参照されうるからです.
+
+\subsection{定数}
+
+フロントエンドの実装に依存しますが, 通常の定数を常にグローバルスコープ
+に置く実装が考えられます. しかし「一時的な」定数に対しては
+この限りではありません. 例えば
+\begin{verbatim}
+void f(int n)
+{
+  struct S {
+   ...
+  };
+  switch ( n ) {
+  case (struct S*)0x2000 - (struct S*)0x1000:
+  ...
+  }
+}
+\end{verbatim}
+フロントエンドは定数ポインタ {\tt{(struct\,\,S*)0x2000}},
+{\tt{(struct\,\,S*)0x1000}} を {\tt{f}} のボディの
+記号表に追加し, {\tt{f}} のコンパイルが終了したときに
+それらを記号表とともに開放しなくてはなりません.
+
+\subsection{中間変数}
+
+図 \ref{expr013} における {\tt{var}} やその派生クラスは
+式を評価した結果として使用され, そのほとんどは
+記号表に追加されることになりますが, {\tt{addrof}} は
+実装によっては記号表に追加されないでしょう.
+記号表に追加されないものも適切に開放される必要があります.
+
+\subsection{3 番地コード}
+\label{speed3ac}
+式や文の評価では述べませんでしたが, 一旦 3 番地コードを
+生成しておき, それらを捨てることがあります. 捨てられる
+3 番地コードは前もって開放しておく必要があります.
+例えば
+式に対して {\tt{sizeof}} 演算子を適用した場合
+\begin{verbatim}
+var* sizeof_expr::eval()
+{
+  int n = code.size();
+  var* expr = m_expr->eval();
+  expr = expr->rvalue();
+
+  // 捨てる前に開放します.
+  for (auto p : code)
+    delete p;
+  code.resize(n);
+  ...
+  return expr->m_type->size();
+}
+\end{verbatim}
+\subsection{ラベル}
+
+ラベルはそもそも函数内でローカルなものですから,
+1 つの函数のコンパイルが終了した時点で適切に捨てられる必要があります.
+ラベルの扱いについては \ref{stmt000} を参照して下さい.
+
+\section{バックエンドでの記号表のトラバース}
+\label{speedback}
+この内容はかつての実装であったため、削除されました。
+
+%% フロントエンドからバックエンドに記号表と 3 番地コードが出力されたとき,
+%% バックエンドは, まず記号表に何が入っているかを事前に知っておき
+%% そして 3 番地コードをターゲットプロセッサのアセンブリ
+%% に変換する必要があるでしょう.
+%% 
+%% 記号表は \ref{symtab000} で述べたように
+%% 木構造になっていますが, 図 \ref{speed000} のような
+%% 限定された形になっています.
+%% \begin{figure}[htbp]
+%% \begin{center}
+%% \begin{htmlonly}
+%% \includegraphics[width=0.5\linewidth,height=0.5\linewidth]{traverse.png}
+%% \end{htmlonly}
+%% \begin{latexonly}
+%% \includegraphics[width=0.5\linewidth,height=0.5\linewidth]{traverse.eps}
+%% \end{latexonly}
+%% \caption{フロントエンドからバックエンドへ出力された記号表}
+%% \label{speed000}
+%% \end{center}
+%% \end{figure}
+%% 
+%% 図 \ref{speed000} におけるグローバルスコープ以外は全く異なるものが
+%% 毎回バックエンドに出力されます. これに対して
+%% グローバルスコープは前回の内容にさらにエントリが付加されます.
+%% 比較的大きな翻訳単位(ファイル)をコンパイルした場合に
+%% グローバルスコープは増大していきます.
+%% 
+%% そこで, グローバルスコープに
+%% 追加された新規の記号のみを保持しておくコンテナをフロントエンドで
+%% 作成しバックエンドで参照するようにします.
+%% \begin{verbatim}
+%% // フロントエンド : グローバルスコープに追加された新規のエントリ
+%% vector<usr*> new_external_declaration;
+%% 
+%% // フロントエンド : 記号表への追加
+%% void add_symtab(usr* entry)
+%% {
+%%   string name = entry->m_name;
+%%   map<string, vector<var*> >& usrs = scope::current->m_usr;
+%%   usrs[name].push_back(entyr);
+%%   if ( scope::current == &scope::root ) {
+%%     // グローバルスコープへのエントリの追加
+%%     new_external_declaration.push_back(entry);
+%%   }
+%% }
+%% 
+%% // フロントエンド : 文法記号 function-definition 
+%% // が還元されたときの yacc アクション函数.
+%% void function_definition(comp_stmt* cs)
+%% {
+%%   cs->gen();  // 3 番地コードがグローバルコンテナ code に
+%%               // 出力されます.
+%%   ...
+%%   
+%%   // バックエンドに記号表, 3 番地コード, グローバルスコープ
+%%   // に新規に追加されたエントリを出力します.
+%%   backend(&scope::root,code,new_external_declaration,...);
+%%   ...
+%%   new_external_declaration.clear(); // ここでクリアします.
+%% }
+%% 
+%% // バックエンド : 記号表トラバースルーチン
+%% void traverse(scope* ptr)
+%% {
+%%   if ( ptr == &scope::root ) {
+%%     // グローバルスコープは特別こちらを参照します.
+%%     const vector<usr*>& v = new_external_declaration;
+%%     for_each(v.begin(),v.end(),...);
+%%   }
+%%   else {
+%%     // そうでなければ通常通りに scope のメンバを参照します.
+%%     map<string, usr*>& usrs = ptr->m_usrs;
+%%     for_each(usrs.begin(),usrs.end(),...);
+%%     ...
+%%   }
+%%   vector<scope*>& children = ptr->m_children;
+%%   for_each(children.beign(),children.end(),traverse);
+%% }
+%% \end{verbatim}
+%% 
+%% 同様に, バックエンドでは {\tt{var}} からアドレス記述子を
+%% 参照するようなテーブルを保持することになりますが, このテーブルを
+%% 2 種類に, すなわち, 最後まで保持し続けるものと, 函数内ローカルな
+%% ものとを分けて保持するとよいでしょう.
+%% 
+%% \begin{verbatim}
+%% // 本来ならこれでこと足りますが 
+%% typedef map<var*, address*> addr_desc;
+%% 
+%% // 例えばこのように最後まで保持するものと, 函数内ローカルなものと
+%% // を分けます
+%% pair<addr_desc,addr_desc> address_descriptors;
+%% \end{verbatim}
+
+\section{{\tt{dynamic\_cast}}}
+
+これまで {\tt{C}} 言語のコンパイラの実装に {\tt{C++}} を
+使用してきました. そしていくつかの場面で {\tt{dynamic\_cast}}
+を使用しました. この演算子はコンパイラの実行時間から見た場合,
+十分高価なので, 避けられる場合は避けるべきであると考えられます.
+
+

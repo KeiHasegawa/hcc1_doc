@@ -1,0 +1,2503 @@
+\label{expr000}
+この章では式に対して
+どのように評価すればよいかということと,
+どのように \ref{_3ac001} 章で述べた 3 番地コードを出力すればよいかという
+こと
+とを考えてみます.
+
+\ref{symtab003} では中間変数を表現するクラス
+{\tt{var}} やその派生クラスについては詳しく述べませんでしたが,
+図 \ref{expr013} に {\tt{var}} とその派生クラスの継承関係を示しました.
+そして後の節で
+それらがどのように式を評価した結果とされるかについて述べることにします.
+
+\begin{figure}[htbp]
+\begin{center}
+\begin{htmlonly}
+\includegraphics[width=1.0\linewidth,height=1.626\linewidth]{var.png}
+\end{htmlonly} 
+\begin{latexonly}
+\includegraphics[width=1.0\linewidth,height=1.626\linewidth]{var.eps}
+\end{latexonly}
+\caption{{\tt{var}} とその派生クラス}
+\label{expr013}
+\end{center}
+\end{figure}
+
+\ref{lex_yacc003} で述べたように上向き構文解析の過程で式を
+以下のクラスの派生クラスとして表現します.
+\begin{verbatim}
+struct expr {
+  virtual var* eval() = 0;  // 式を評価します.
+  virtual ~expr(){}
+};
+\end{verbatim}
+
+\section{\tt{primary-expression}}
+\label{expr015}
+\index{primary-expression@\tt{primary-expression}}
+{\tt{primary-expression}} は識別子, 整数定数, 文字定数, 浮動小数点定数,
+定数文字列, 列挙定数, 括弧でくくられた式のいずれかです. このうち, 括弧で
+くくられた
+式以外ついては字句の属性が {\tt{var}} へのポインタであり, 括弧で
+くくられた式は {\tt{expr}} へのポインタとなるわけですから, 
+{\tt{primary-expression}} は以下のように表現することができます.
+
+\begin{verbatim}
+class prim_expr : public expr {
+  var* m_var;
+  expr* m_expr;
+public:
+  prim_expr(var* v) : m_var(v), m_expr(0) {}
+  prim_expr(expr* e) : m_var(0), m_expr(e) {}
+  var* eval();
+};
+\end{verbatim}
+
+C 言語では部分式の型が配列か函数の場合, ポインタの生成
+を行なうことになります. ポインタの生成に関しては
+参考文献 \cite{KR} 「A7.1 ポインタの生成」や
+%%\begin{quotation}
+%%式あるいは部分式の型が, ある型 $T$ について ``$T$ の配列'' であれば,
+%%その式の値は配列の中の最初のオブジェクトへのポインタであり, 式の型は
+%%``$T$ へのポインタ'' に変更される. この式が単項の {\tt{\&}} 演算子,
+%%あるいは {\tt{++}}, {\tt{--}}, {\tt{sizeof}} の被演算数, あるいは
+%%代入演算子, あるいは, 演算子の左演算数のものであれば, この変換は行なわれ
+%%ない. 同様に, 型 ``$T$ を返す函数'' の式は, {\tt{\&}} 演算子
+%%の被演算数として使われる場合を除き, ``$T$ を返す函数へのポインタ'' に
+%%変換される.
+%%\end{quotation}
+参考文献 \cite{ISO} 「6.2.2.1 Lvalues and function designators」
+%%\begin{enumerate}
+%%\item ...
+%%\item ...
+%%\item
+%%Except when it is the operand of the {\tt sizeof} operator or the unary 
+%%{\tt \&} operator, or is a character string literal used to initialize 
+%%an array of character type, or is a wide string literal used to
+%% initialize an array with element type compatible
+%%\index{compatible@compatible}
+%% with {\tt{wchar\_t}}, an
+%%lvalue that has type ``array of {\it type}'' is converted to an expression 
+%%that has type ``pointer to {\it type}'' that points to the initial element 
+%%of the array object and is not an lvalue. If the array object has
+%% register storage class, the behavior is undefined.
+%%
+%%\item
+%%A function designator is an expression that has function type. 
+%%Except when it is the operand of the {\tt{sizeof}} operator or the unary
+%%{\tt{\&}} operator, a function designator with type ``function returning
+%% {\it type}'' is converted to an expression that has type ``pointer to
+%%function returning {\it type}.''
+%%\end{enumerate}
+を参照して下さい.
+
+ {\tt{prim\_expr::eval}} は以下のように
+なります.
+\begin{verbatim}
+var* prim_expr::eval()
+{
+  if ( m_expr )  // 括弧でくくられた式の場合
+    return m_expr->eval();
+
+  m_var が列挙のメンバならば該当する整数値を返します.
+
+  typedef const pointer_type PT;
+  const type* T = m_var->m_type;
+  if ( const PT* pt = T->pointer_gen() ) {
+    // 配列か函数のいずれかの場合
+    return new genaddr(m_var,...);
+  }
+  else
+    return m_var;
+}
+\end{verbatim}
+ポインタの生成が行なわれた場合, 式の結果を図 \ref{expr013} の
+{\tt{genaddr}} で表わします.
+結果がポインタの生成の規則の例外に該当した場合や
+静的な変数の初期値に指定された場合を考慮して
+3 番地コード {\tt{x := \&y}} は必要な場合のみに生成されることになります.
+
+\section{\tt{postfix-expression}}
+\index{postfix-expression@\tt{postfix-expression}}
+
+\subsection{添字参照演算子}
+\label{expr017}
+\index{そえしさんしょうえんさんし@添字参照演算子}
+
+以下のプログラムについて考えてみます.
+\begin{verbatim}
+void f(double* p, int i, int j){ p[j] = p[i]; }
+\end{verbatim}
+{\tt{sizeof(double) = 8}} とすると
+フロントエンドでは以下のような 3 番地コードを出力することになります.
+\begin{verbatim}
+f:
+  t0 := i * 8             # int t0
+  t1 := p + t0            # double* t1
+  t2 := j * 8             # int t2
+  t3 := p + t2            # double* t3
+  t4 := *t1               # double t4
+  *t3 := t4
+\end{verbatim}
+右辺の添字参照演算子に対して結果的に 3 番地コード {\tt{x := *y }} が
+出力されたのに対して, 左辺の添字参照演算子に対しては
+3 番地コード {\tt{*y := z}} が出力されています. すなわち, 添字参照演算子
+が右辺値として使用されるか, 左辺値として使用されるかによってコード生成が
+異なります.
+
+もう 1 つのプログラムについて考えてみます.
+\begin{verbatim}
+double a[10];
+void g(int i){ a[5] = a[i]; }
+\end{verbatim}
+フロントエンドでは以下のような 3 番地コードを出力することになります.
+\begin{verbatim}
+g:
+     t0 := 8 * i          # int t0
+     t1 := a[t0]          # double t1
+  a[40] := t1
+\end{verbatim}
+右辺の添字参照演算子に対して結果的に 3 番地コード {\tt{x := y[z] }} が
+出力されたのに対して, 左辺の添字参照演算子に対しては
+3 番地コード {\tt{x[y] := z}} が出力されています. やはり, 添字参照演算子
+が右辺値として使用されるか, 左辺値として使用されるかによってコード生成が
+異なります.
+
+これら 2 つの例から, 添字参照演算子が図 \ref{expr013} のどれに適用されたかで
+演算子の評価の仕方を変えるべきであることが分かります.
+これを仮想函数で実現すると以下のようになります.
+\begin{verbatim}
+struct var {
+  ...
+  virtual var* subscripting(var* index);
+};
+
+struct genaddr : generated, addrof {
+  ...
+  var* subscripting(var* index);  // 仮想函数の上書き
+};
+\end{verbatim}
+{\tt{genaddr}} は \ref{expr015} でポインタの生成が行なわれた場合の
+式の結果です. {\tt{genaddr::subscripting}} は以下のようになります.
+\begin{verbatim}
+// m_ref に対してポインタの生成が行なわれ, さらにそれに対して
+// 添字参照演算子が index のオペンランドで適用された場合の式の評価
+var* genaddr::subscripting(var* index)
+{
+  index = index->rvalue();
+  if ( !index->m_type->integer() ) {
+    // 添字の値が整数型ではないのでエラーとなります.
+  }
+  typedef const array_type AT;
+  AT* at = dynamic_cast<AT*>(m_ref->m_tpye);
+  if ( !at ) {
+    // 函数に添字参照しているのでエラーとなります.
+  }
+  const type* T = at->element_type();
+  var* size = integer::create(T->size());
+  var* offset = expr::binary('*', size, index);
+  return offref(T,offset);  // 仮想函数呼び出し
+}
+\end{verbatim}
+仮想函数 {\tt{offref}} については後述しますが, ここでは簡単に
+仮想函数 {\tt{offref}} は \ref{expr013} の {\tt{ref}} 
+かその派生クラスを返すとだけ説明します.
+結果を {\tt{ref}} かその派生で表現する理由は,
+右辺値参照か左辺値参照かによって生成されるコードが変わるからです.
+{\tt{genaddr::subscripting}} の 1 行目の {\tt{var::rvalue}} の呼び出しは
+右辺値参照されたときに行なうことにします.
+
+同様に, {\tt{var::subscripting}} は以下のようになります.
+\begin{verbatim}
+var* var::subscripting(var* index)
+{
+  var* array = rvalue();
+  index = index->rvalue();
+  if ( !index->m_type->integer() )
+    swap(array,index);
+  if ( !index->m_type->integer() ) {
+    // 添字の値が整数型ではないのでエラーとなります.
+  }
+  typedef const pointer_type PT;
+  PT* pt = dynamic_cast<PT*>(array->m_type);
+  if ( !pt ) {
+    // array->m_type がポインタでないのでエラーとなります.
+  }
+  const type* T = pt->reference_type();
+  var* size = integer::create(T->size());
+  var* offset = size->mul(index);
+  return array->offref(T,offset);  // 仮想函数呼び出し
+}
+\end{verbatim}
+オフセットが定数の場合には特別な処理をする必要があります. 例えば,
+\begin{verbatim}
+/* グローバルスコープ */
+int a[5][6];
+int* p = &a[3][4];  /* p の初期値は a のアドレスに sizeof(int) * 22
+                       を加算したものになります. */
+
+int* q = &((int*)0x5678)[9];  /* q の初期値は 0x5678 + sizeof(int) * 9
+                                 になります. */
+\end{verbatim}
+このため仮想函数 {\tt{offref}} を定義し, 必要に応じて上書きするようにし
+ます.
+\begin{verbatim}
+struct var {
+  ...
+  virtual var* offref(const type* T, var* offset)
+  {
+    // 最も一般的な処理
+    var* ret = new ref(T);
+    ...  // アドレス計算する 3 番地コードを生成します.
+    retun ret;
+  }
+};
+
+struct genaddr : generated, addrof {
+  ...
+  var* offref(const type* T, var* offset)  // 仮想函数の上書き
+  {
+    if ( offset->isconstant() ) {
+      // この場合は refaddr を返します.
+      int off = m_offset + offset->int_value();
+      return new refaddr(pointer_type::create(T),
+                         m_ref,off);
+    }
+
+    // この場合は refsomewhere を返します.
+    offset = offset->add(integer::create(m_offset));
+    return new refsomewhere(pointer_type::create(T),
+                            m_ref,offset);
+  }
+};
+
+// constat テンプレート特別バージョン
+template<> struct constant<void*> : usr {  // 定数ポインタ
+  void* m_value;
+  ...
+  var* offref(const type* T, var* offset)  // 仮想函数の上書き
+  {
+    if ( offset->isconstant() ) {
+      int off = offset->int_value();
+      char* p = reinterpret_cast<char*>(m_value);
+      return new refimm(pointer_type::create(T),p+off);
+    }
+    return var::offref(T,offset);
+  }
+};
+\end{verbatim}
+この他にも {\tt{addrof}}, {\tt{refaddr}}, {\tt{refsomewhere}} でも
+仮想函数 {\tt{offref}} を上書きする必要がありますが, 簡単のためここでは
+省略します.
+%% struct addrof : virtual var {
+%%   var* m_ref;
+%%   int m_offset;
+%%   ...
+%%   var* offref(const type* T, var* offset)  // 仮想函数の上書き
+%%   {
+%%   }
+%% };
+%% 
+%% struct refaddr : ref {
+%%   addrof* m_addrof;
+%%   int m_offset;
+%%   ...
+%%   var* offref(const type* T, var* offset)  // 仮想函数の上書き
+%%   {
+%%      if ( offset->isconstant() ) {
+%%        // 現在のオフセット m_addrof.m_offset に offset を
+%%        // 加算したものを参照するようにします.
+%%        int off = m_addrof.m_offset + offset->int_value();
+%%        return new refaddr(pointer_type::create(T),
+%%                           m_addrof.m_ref,off);
+%%      }
+%% 
+%%      // オフセットが定数でない場合
+%%      var* v = integer::create(m_addrof.m_offset);
+%%      offset = offset->add(v);
+%%      return new refsomewhere(pointer_type::create(T),
+%%                              m_addrof.m_ref,offset);
+%%   }
+%% };
+%% 
+%% struct refsomewhre : ref {
+%%   ...
+%%   var* offref(const type* T, var* offset)  // 仮想函数の上書き
+%%   {
+%%     // コード生成しないで, 新しい refsomewehre を返します.
+%%   }
+%% };
+
+\subsection{函数呼び出し演算子}
+\label{expr006}
+\index{かんすうよひたしえんさんし@函数呼び出し演算子}
+
+函数型は配列型と同様にポインタの生成の対称となる型です.
+必要な場合のみ 3 番地コード {\tt{x := \&y}} を
+出力するようにしたいので,
+添字参照演算子と同様に {\tt{genaddr::call}} と {\tt{var::call}}
+を分けることにします.
+\begin{verbatim}
+struct var {
+  ...
+  virtual var* call(const vector<var*>& arg);
+};
+
+struct genaddr : generated, addrof {
+  ...
+  var* call(const vector<var*>& arg);  // 仮想函数の上書き
+};
+\end{verbatim}
+{\tt{genaddr::call}} では {\tt{inline}} 宣言された函数に対する
+処理等も含まれますが, 簡単に, 以下のようになります.
+\begin{verbatim}
+// m_ref に対してポインタの生成が行なわれ, さらにそれに対して
+// 函数呼び出し演算子が arg で適用された場合の式の評価
+var* genaddr::call(const vector<var*>& arg)
+{
+  typedef const func_type FT;
+  FT* ft = dynamic_cast<FT*>(m_ref->m_type);
+  if ( !ft ) {
+    // 函数でないものに函数呼び出し演算子を適用しているので
+    // エラーとなります.
+  }
+  return call_impl::common(ft,m_ref,arg);
+}
+\end{verbatim}
+C 言語では宣言のない函数呼び出しも許されていることを考慮すると
+{\tt{var::call}} は以下のようになります.
+\begin{verbatim}
+var* var::call(const vector<var*>& arg)
+{
+  var* func = rvalue();
+  const type* T = func->m_type;
+  if ( func は記号表になかった ) {
+    // ここで func を記号表に追加します.
+    usr* u = static_cast<usr*>(func);
+    string name = u->m_name;
+    u->m_type = T = func_type::create(int_type::create(),...);
+    scope::current->m_usrs[name] = u;
+  }
+  else {
+    // ポインタ経由の函数呼び出し
+    typedef const pointer_type PT;
+    PT* pt = dynamic_cast<PT*>(T);
+    if ( !pt ) {
+      // ポインタでないのでエラーとなります.
+    }
+    T = pt->reference_type();
+  }
+  typedef const func_type FT;
+  FT* ft = dynamic_cast<FT*>(T);
+  if ( !ft ) {
+    // 函数ポインタ以外に函数呼び出し演算子を適用しているので
+    // エラーとなります.
+  }
+  return call_impl::common(ft,func,arg);
+}
+\end{verbatim}
+
+函数呼び出し演算子の評価では
+呼び出す函数のパラメータと引数の個数が
+正しいかを調べることが必要になります. C 言語では可変個の
+パラメータを引数とする函数の宣言があり, これを \ref{type004} で述べた
+{\tt{ellipsis\_type}} で表現することにすると
+\begin{verbatim}
+// パラメータの型から函数が取り得る引数の上限と下限を求めます
+pair<int,int>
+call_impl::num_of_range(const vector<const type*>& param)
+{
+  const type* T = param.back();
+  typedef const ellipsis_type ELLIPSIS;
+  if ( ELLIPSIS* ellipsis = dynamic_cast<ELLIPSIS*>(T) )
+    return make_pair(param.size()-1,numeric_limits<int>::max());
+
+  return T->compatible(void_type::create()) ? make_pair(0,0)
+    : make_pair(param.size(),param.size());
+}
+\end{verbatim}
+
+\begin{verbatim}
+var* call_impl::common(const func_type* ft, var* func,
+                       const vector<var*>& arg)
+{
+  int n = arg.size();
+  const vector<const type*>& param = ft->param();
+  pair<int,int> m = num_of_range(param);
+  if ( n < m.first ) {
+    // 引数が少ないのでエラーとなります.
+  }
+  else if ( m.second < m ) {
+    // 引数が多いのでエラーとなります.
+  } 
+  ...
+}
+\end{verbatim}
+
+函数呼び出し演算子の評価では, さらに,
+個数が正しいもとで, 引数を函数に渡す前の変換が
+必要になります. これはパラメータの型に引数の型が
+代入できるかを判断することになります.
+\begin{verbatim}
+var* call_impl::convert(var* arg, const type* T)
+{
+  arg = arg->rvalue();
+  T = assign_impl::valid(T,arg);
+  if ( !T ) {
+    // 代入が定義されていないのでエラーとなります.
+  }
+  return arg->cast(T);
+}
+
+tac* call_impl::new_param(var* y){ return new param(y); }
+
+var* call_impl::common(const func_type* ft, var* func,
+                       const vector<var*>& arg)
+{
+  ...
+  vector<var*> conved;
+  transform(arg.begin(),arg.end(),param.begin(),back_inserter(conved),
+            convert);
+  transform(conved.begin(),conved.end(),back_inserter(code),new_param);
+  ...
+}
+\end{verbatim}
+
+最後に函数呼び出しの 3 番地コードを出力することになります.
+函数を返す函数, 配列を返す函数の宣言はエラーですが,
+不完全型を返す函数の宣言はエラーとはなりません.
+しかし不完全型を返す函数の呼び出しはエラーになるので
+函数の戻り型についても調べる必要があります.
+\begin{verbatim}
+void f(void)
+{
+  struct S g();  /* 不完全型を返す函数の宣言です. */
+  g();  /* これはエラーとなります. */
+  struct S { int a; };
+  g();  /* これならば OK となります. */
+}
+\end{verbatim}
+{\tt{call\_impl::common}} の該当部分は以下のようになります.
+\begin{verbatim}
+var* call_impl::common(const func_type* ft, var* func,
+                       const vector<var*>& arg)
+{
+  ...
+  const type* T = ft->return_type();
+  var* ret = new var(T);
+  if ( T->compatible(void_type::create()) ) {
+    code.push_back(new call3ac(0,func));
+    return ret;
+  }
+  T = T->complete_type();
+  if ( !T->size() ) {
+    // 不完全型を返す函数を呼び出しているのでエラーとなります.
+  }
+  scope::current->m_vars.push_back(ret);  // 記号表に追加します.
+  code.push_back(new call3ac(ret,func));
+  return ret;
+}
+\end{verbatim}
+
+\subsection{メンバ参照演算子}
+\label{expr024}
+\index{めんはさんしょうえんさんし@メンバ参照演算子}
+
+上向き構文解析の過程で {\tt{.}} 演算子, {\tt{->}} 演算子
+を表現するノードを以下のように表現します.
+\begin{verbatim}
+class member : public expr {
+  var* m_var;           // 左オペランド
+  std::string m_name;   // 右オペランド
+  bool m_dot;           // . 演算子ならば true, -> 演算子ならば false
+public:
+  ...
+  var* eval();
+};
+\end{verbatim}
+メンバ参照演算子の評価で気をつけることは 
+{\tt{(*$\alpha$).$\beta$}} は \tt{$\alpha$->$\beta$} と
+等価に扱わなくてはならないということです. 以下の例につい
+て考えてみましょう.
+\begin{verbatim}
+  struct T { int c; int b; } *a;
+  ...
+  (*a).b = 1;
+\end{verbatim}
+のようなプログラムに対して {\tt{sizeof(int) = 4}} とすると
+\begin{verbatim}
+  t0 := *a      # struct T t0
+  t1 := &t0     # int* t1
+  t1 := t1 + 4
+ *t1 := 1
+\end{verbatim}
+のような 3 番地コードを出力するのは誤りです.
+このコードはポインタ変数 {\tt{a}} の指すオブジェクトの
+{\em コピー}のオフセット 4 に書き込み参照しているからです.
+期待する 3 番地コードは以下のようになります.
+\begin{verbatim}
+  t1 := a + 4   # int* t1
+ *t1 := 1
+\end{verbatim}
+従って {\tt{member::eval}} ではメンバ {\tt{m\_var}} に対して仮想函数
+{\tt{rvalue}} を呼び出すのは間違いとなります. {\tt{member::eval}} は
+簡単に, 以下のようになります.
+\begin{verbatim}
+var* member::eval()
+{
+  // m_var の評価(コード生成)はせず, 結果の型を求めます.
+  const type* T = m_var->result_type();  // 仮想函数呼び出し.
+
+  T = T->unqualified();
+  typedef const pointer_type PT;
+  if ( !dot ) {
+    PT* pt = dynamic_cast<PT*>(T);
+    if ( !pt ) {
+      // ポインタ以外に -> 演算子を適用しているのでエラーとなります.
+    }
+    T = pt->referenced_type();
+    T = T->unqualified();
+  }
+  T = T->complete_type();
+  typedef const record_type REC;
+  REC* rec = dynamic_cast<REC*>(T);
+  if ( !rec ) {
+    // 構造体, 共用体以外にメンバ参照演算子を適用してい
+    // るのでエラーとなります.
+  }
+  pair<int, usr*> off = rec->offset(m_name);
+  int offset = off.first;
+  if ( offset < 0 ) {
+    // メンバにないものを参照しているのでエラーとなります.
+  }
+  usr* member = off.second;
+  T = member->m_type;
+  if ( member->m_flag & usr::BIT_FIELD ) {
+    // ビットフィールドの参照
+    return new refbit(...);
+  }
+  var* off = integer::create(offset);
+  return m_var->offref(T,off);  // 仮想函数呼び出し
+}
+\end{verbatim}
+
+\subsubsection{左辺値に対する扱い}
+\label{expr023}
+ここで式の評価と少し議論がそれますが, 左辺値について考えてみます.
+C 言語の式で左辺値を持ちうる式は以下のものになります.
+\begin{enumerate}
+\item 識別子. {\tt{a = 1;}}
+\item 文字列定数 (代入演算子の左オペランドにすることはできません
+が, 単項の {\tt{\&}} 演算子を適用できます). {\tt{\&"foo";}}
+\item 添字演算子. {\tt{a[b] = c;}}
+\item {\tt{.}} 演算子. {\tt{a.b = c;}}
+\item {\tt{->}} 演算子. {\tt{a->b = c;}}
+\item {\tt{compound-literal}} (代入演算子の左オペランドにするこ
+ともできます). {\tt{\&(struct S)\{1,2\};}}
+\item 単項の {\tt{*}} 演算子. {\tt{*a = b;}}
+\item 上記のものを括弧でくくったもの {\tt{(a) = b;}}
+\end{enumerate}
+ここで
+メンバ参照演算子 {\tt{->}} は常に左辺値になりますが, {\tt{.}} (ドット)演算子は
+必ずしも左辺値にはなりません. 例えば
+\begin{verbatim}
+  struct S f();
+  f().a = 1;  /* 函数呼び出しの結果は左辺値ではな
+                 いのでエラーとなります. */
+\end{verbatim}
+式 {\tt{$\alpha$.$\beta$}} において $\alpha$ が左辺値ならば
+{\tt{$\alpha$.$\beta$}} も左辺値になります.
+
+左辺値を式に対する属性と考えるので
+はなく, 式を評価した結果の属性, すなわち, {\tt{var}} の仮想函数とするこ
+とにします.
+
+{\tt{.}} 演算子の評価場合, 図 \ref{expr013} の {\tt{refaddr}} を評価の結果とし,
+{\tt{refaddr::lvalue}} で {\tt{false}} を返すようにします.
+もしくは, {\tt{refaddr}} が右辺値として参照された結果, す
+なわち中間変数 {\tt{var}} を式の結果とします.
+こうすることで上に述べた例のエラーをフロントエンドで正しく
+捉えることができるようになります.
+
+\subsection{後置 {\tt{++}}, 後置 {\tt{--}} 演算子}
+\label{expr007}
+\index{++@{\tt{++}}}
+\index{--@{\tt{--}}}
+
+後置 {\tt{++}}, 後置 {\tt{--}} 演算子は演算前の値を
+中間変数として式の結果とし, インクリメント, デクリメント
+をその後で行ないます.
+以下に簡単な例を示します.
+\begin{verbatim}
+  int a; ...; a++;
+
+  t0 := a      # int t0 : a++ の結果となります
+  a := a + 1
+\end{verbatim}
+
+ポインタの生成の対象となる型に対する後置 {\tt{++}}, 後置 {\tt{--}} に
+ついて考えてみます.
+\begin{verbatim}
+  int a[10];
+  void f(void);
+  ...
+  a++;  /* 配列型に対して後置の ++ を適用しているのでエラーです. */
+  f--;  /* 函数型に対して後置の -- を適用しているのでエラーです. */
+\end{verbatim}
+この例からオペランドがポインタの生成によって生じたものであれば, 
+すなわち図 \ref{expr013} の {\tt{generated}} 
+がオペランドであれば, その時点
+でエラーにしてよいことになります. 
+\begin{verbatim}
+struct var {
+  ...
+  // ++, -- の式の評価をするときにこの仮想函数を呼び出します
+  virtual var* ppmm(bool plus, bool post)
+  {
+    // 左辺値でないのでエラーになります.
+  }
+};
+
+struct usr : var {
+  ...
+  var* ppmm(bool plus, bool post)  // 仮想函数の上書き
+  {
+    // プログラムに現れる変数で変更できるのならば
+    // その処理を行ないます.
+  }
+};
+
+struct generated : var {
+  var* ppmm(bool plus, bool post)  // 仮想函数の上書き
+  {
+    // ここで直ちにエラーにします.
+  }
+};
+\end{verbatim}
+
+式の評価の結果が図 \ref{expr013} の {\tt{ref}}, すなわち, 
+左辺値参照されるか右辺値参照されるかによって評価の仕方が
+異なるものに対して, 後置 {\tt{++}} や後置 {\tt{--}} を適用した
+場合についても考えてみます. 
+\begin{verbatim}
+  char *a; ...; (*a)++;
+\end{verbatim}
+3 番地コードは以下のようになります.
+\begin{verbatim}
+                  # *a の結果は ref になります
+  t0 := *a        # char t0
+                  # (*a) に対して後置の ++ が適用されたので *a
+                  # を評価します. t0 は (*a)++ の評価結果です.
+  t1 := (int)t0   # int t1
+                  # t0 は char 型なので, このときに格上げ
+                  # が起こります.
+  t1 := t1 + 1
+  t2 := (char)t1  # t1 は格上げ後なので格上げ前の型に結果を戻します
+  *a := t2 
+\end{verbatim}
+
+\subsection{{\tt{compound-literal}}}
+
+{\tt{compound-literal}} は ISO C で定義されています.
+詳しくは参考文献 \cite{ISO} を参照してください.
+{\tt{compound-literal}} の式の評価はほとんどが
+\ref{decl005} 節で述べた初期化指定子に委ねられることになります.
+\begin{verbatim}
+struct S { int a; int b; };
+
+struct S a = (struct S){1, 2};  /* グローバルスコープなので
+                                   initializer-list には
+                                   定数のみが許されることになり
+                                   ます.
+                                   struct S a = { 1, 2 };
+                                   に等価となります. */
+
+struct S* b = &(struct S){3, 4};  /* グローバルスコープに struct S
+                                     型の中間変数を作成し, その
+                                     アドレスが b の初期値にな
+                                     ります. この中間変数は 3, 4
+                                     で初期化されます.
+                                   */
+void f(int x, int y)
+{
+  void g(struct S*);
+  g(&(struct S){x, y});  /* compound-literal は string-literal
+                            と同じように左辺値になるので, 単項の &
+                            を適用できることになります. */
+
+  int *p = (int []){x, y};  /* type-name は不完全型の配列ですが,
+                               initializer-list で右辺の型は
+                               int [2] になります. */
+
+  (int){1} = 2;  /* int 型の中間変数を 1 で初期化し,
+                    その中間変数に2 を代入しています. */
+}
+\end{verbatim}
+
+\section{\tt{unary-expression}}
+\label{expr008}
+\index{unary-expression@\tt{unary-expression}}
+
+\subsection{前置 {\tt{++}}, 前置 {\tt{--}} 演算子}
+\index{++@{\tt{++}}}
+\index{--@{\tt{--}}}
+
+\ref{expr007} では後置 {\tt{++}}, 後置 {\tt{--}}
+演算子について述べました. 前置 {\tt{++}}, 前置 {\tt{--}}
+演算子はインクリメント, デクリメント後の結果が
+演算子の結果となります.
+
+\subsection{単項の {\tt{\&}} 演算子}
+\label{expr019}
+オペランドに左辺値が要求されることになります.
+これまで演算子を評価した結果を図 \ref{expr013} にある
+クラスで表現してきました. そこで単項の {\tt{\&}} 演算子に対しても
+以下のように仮想函数を定義して, 各クラスで必要であれば
+上書きすることで処理を分けることにします.
+\begin{verbatim}
+struct var {
+  ...
+  virtual var* address(){ /* 左辺値を持たないのでエラーとなります. */ }
+};
+
+struct usr : var {
+  flag_t m_flag;  // 記憶クラス等を保持します
+  ...
+  var* address();  // 仮想函数の上書き
+};
+\end{verbatim}
+プログラムに現われる変数のアドレスの処理は {\tt{usr::address}} によって
+以下のように処理されることになります.
+\begin{verbatim}
+var* usr::address()
+{
+  if ( !lvalue() )
+    // 左辺値を持たないのでエラーとなります.
+
+  if ( m_flag & REGISTER )
+    // 記憶クラス register が指定されているのでエラーとなります.
+
+  typedef const poitner_type PT;
+  PT pt = pointer_type::create(m_type);
+  block* b = dynamic_cast<block*>(scope::current);
+  if ( b && constant-expression を処理中ではない ) {
+    // この場合は 3 番地コードを生成します.
+    var* ret = new var(pt);
+    b->m_vars.push_back(ret);
+    code.push_back(new addr3ac(ret,this));
+    return ret;
+  }
+  else
+    return new addrof(pt,this,...);
+}
+\end{verbatim}
+ポインタの生成規則の対象となった部分式の結果に対しても, 特別の
+処理をする必要があります.
+\begin{verbatim}
+struct genaddr : generated, addrof {
+  ...
+  var* address();  // 仮想函数の上書き
+};
+
+var* genaddr::address()
+{
+  // usr::address と同様に 3 番地コードを生成するか
+  // addrof を評価の結果とするか決めます.
+}
+\end{verbatim}
+
+\begin{QandA}
+クラス {\tt{generated}} で仮想函数 {\tt{address}} を上書きしなくても
+問題にならないのでしょうか.
+
+回答 : 実装に依存すると考えています. 確かにポインタの生成規則の例外とし
+て単項の {\tt{\&}} 演算子があります. しかし, 実装によっては
+式の評価の結果が {\tt{generated}} で表現される場面が限定されていることが
+あります.
+{\tt{generated}} に対して仮想函数 {\tt{address}} を呼び出すことが
+なければ上書きする必要はないと考えることができます. もしくはあえて
+上書きして
+\begin{verbatim}
+var* generated::address(){ assert(0); /* 内部エラー */ } 
+\end{verbatim}
+とすることもできます. 一方で {\tt{genaddr::address}} では {\tt{addrof}}
+を式を評価した結果としたいのですが, それは {\tt{generated}} では
+できないからです.
+\end{QandA}
+左辺値参照か右辺値参照かによって評価のしかたが変わる図 \ref{expr013} にある
+ {\tt{ref}} や
+その派生クラスについても仮想函数を上書きする必要があります.
+\begin{verbatim}
+var* ref::address() // 仮想函数の上書き
+{
+  // この場合は必ず 3 番地コードを生成します.
+  var* ret = new var(m_type);
+  code.push_back(new assign3ac(ret,this));
+  return ret;
+}
+
+var* refaddr::address() // 仮想函数の上書き
+{
+  // usr::address, genaddr::address と同様に 3 番地コードを生成
+  // するか addrof を式の評価の結果とするかを決めます.
+}
+
+var* refbit::address()  // 仮想函数の上書き
+{
+  // ビットフィールドに対して単項の & 演算子. エラーとなります.
+}
+
+var* refimm::address()  // 仮想函数の上書き
+{
+  return new constant<void*>(...);
+}
+
+var* refsomewhere::address()  // 仮想函数の上書き
+{
+  // アドレス計算のためのコードを生成します.
+}
+\end{verbatim}
+
+\subsection{単項の {\tt{*}} 演算子}
+\label{expr009}
+\index{たんこうの@単項の {\tt{*}}}
+
+単項の {\tt{*}} 演算子は, 左辺値として参照されるか右辺値として
+参照されるかによって出力される 3 番地コードが異なるため, 評価の結果は
+図 \ref{expr013} にある {\tt{ref}} や {\tt{refaddr}} で表現する必要があ
+ります. やはりこの演算子の評価も仮想函数で行なうことにします.
+
+\begin{verbatim}
+struct var {
+  ...
+  virtual var* indirection();  // 単項の * の評価
+};
+
+var* var::indirection()
+{
+  var* y = rvalue();
+  const type* T = y->m_type;
+  T = T->unqualified();
+  typedef const pointer_type PT;
+  PT* pt = dynamic_cast<PT*>(T);
+  if ( !pt ) {
+    // ポインタでないのでエラーとなります.
+  }
+  ref* x = new ref(pt);
+  code.push_back(new assign3ac(x,y));
+  return x;
+}
+\end{verbatim}
+式を評価した結果が図 \ref{expr013} にある {\tt{addrof}},
+{\tt{genaddr}}, {\tt{constant<void*>}} の場合には評価の方
+法を変えるべきでしょう.
+例えば, 
+\begin{verbatim}
+/* グローバルスコープ */
+int a; int* p = &*&a;  /* p の初期値は a のアドレスになります */
+
+void f(void); void g(void){ (****************f)(); }  /* OK */
+
+int* q = &*(int*)0x1234;  /* q の初期値は 0x1234 になります. */
+\end{verbatim}
+そこで, 仮想函数の上書きをし {\tt{addrof::indirection}},
+{\tt{genaddr::indirection}}, {tt{constant<void*>::indirection}} で特別
+な処理をすればよいことになります.
+これにより, 最適化なしで {\tt{g}} の 3 番地コードを {\tt{call f}}
+の 1 命令とすることもできます.
+
+\subsection{単項の {\tt{+}} 演算子}
+\index{たんこうの@単項の \tt{+}}
+
+この演算子の結果は左辺値を持たないので, 評価の結果が左辺値を
+持たないものを返す必要があります.
+\begin{verbatim}
+struct var {
+  ...
+  var* plus(){ ... return this; }  // 仮想函数でない. 間違い.
+};
+\end{verbatim}
+また算術型の定数に対しては, 静的な変数の初期値に指定された
+場合も考慮しなくてはなりません. やはりこれまでの演算子の評価
+と同じように, 仮想函数を定義し, 必要に応じて上書きすることにします.
+\begin{verbatim}
+struct var {
+  ...
+  virtual var* plus();  // 仮想函数
+};
+
+template<class T> struct constant : usr {
+  ...
+  var* plus();  // 仮想函数の上書き
+};
+\end{verbatim}
+{\tt{var::plus}} では必ず 3 番地コードを生成することになりますが,
+このコードは最適化の段階で削ることができるでしょう.
+{\tt{var::plus}} は以下のようになります.
+\begin{verbatim}
+var* c_compiler::var::plus()
+{
+  var* expr = rvalue();
+  const type* T = expr->m_type;
+  if ( !T->arithmetic() ) {
+    // 算術型でないのでエラーになります.
+  }
+  T = T->promotion();
+  expr = expr->cast(T);
+  var* ret = new var(T);
+  if ( block* b = dynamic_cast<block*>(scope::current) )
+    b->m_vars.push_back(ret);
+  code.push_back(new assign3ac(ret,expr));
+  return ret;
+}
+\end{verbatim}
+これに対して定数はもともと左辺値を持たないわけですから,
+{\tt{constant<T>::plus}} は以下のようになります.
+\begin{verbatim}
+template<class T> var* constant<T>::plus(){ ... return promotion(); }
+\end{verbatim}
+
+\subsection{単項の {\tt{-}} 演算子}
+\index{たんこうの@単項の \tt{-}}
+単項の {\tt{+}} 演算子と同様ですが, {\tt{constant<T>::minus}} では
+フロントエンドで実行時評価をすることになります.
+\begin{verbatim}
+struct var {
+  ...
+  virtual var* minus()  // 仮想函数
+  {
+    // 3 番地コード x := -y を出力します.
+  }
+};
+
+template<class T> struct constant : usr {
+  ...
+  var* minus()  // 仮想函数の上書き. 実行時評価をします.
+  {
+    // 保持している定数値に単項の - を適用し, それに対する
+    // constant を作成し, それを返します.
+  }
+};
+\end{verbatim}
+
+\subsection{{\tt{\~{}}} 演算子}
+
+単項の {\tt{+}} 演算子, 単項の {\tt{-}} 演算子と同様ですが,
+この演算数は整数型である必要があります.
+
+\subsection{{\tt{!}} 演算子}
+\label{expr016}
+{\tt{!}} 演算子のオペランドはスカラ型に対して定義されています. 演算子の
+オペランドに対して適切なゼロを生成し, 比較の結果そのゼロと異なるならば
+結果は 0 でそうでなければ 1 となります. このため \tt{!} 演算子に
+対して 3 番地コードを生成する場合, 分岐命令を使用することになる点で他
+の単項演算子とは異なる性質を持ちます. 定数に対して {\tt{!}} 演算子を適用
+した結果は他の単項演算子と同様にフロントエンドで実行時評価をします.
+\begin{verbatim}
+struct var {
+  ...
+  virtual var* not();  // 仮想函数
+};
+
+template<class T> struct constant : usr {
+  ...
+  var* not()  // 仮想函数の上書き. 実行時評価をします.
+  {
+    // 0 か 1 かのいずれかを返します.
+  }
+};
+\end{verbatim}
+以下は {\tt{char* p}} に対して {\tt{!*p}} を評価したときの
+3 番地コードです.
+\begin{verbatim}
+  t0 := *p                 # char t0
+  t1 := (int)t0            # int t1
+  if t1 != 0 goto label
+  t2 := 1                  # int t2
+  goto label2
+label:
+  t2 := 0
+label2:
+\end{verbatim}
+この場合 {\tt{t2}} が評価の結果となります.
+{\tt{!}} 演算子は主に {\tt{if}} 文の条件や, ループ文の条件に
+使用されます. この場合できることなら, 上記 3 番地コードの
+{\tt{t2}} に対する部分を置換して, より短い 3 番地コードを
+出力したいわけです. このため {\tt{!}} 演算子の評価の結果を
+単なる {\tt{var}} とするのではなく図 \ref{expr013} における
+{\tt{var01}} とすると簡単に実現することができます. すなわち,
+\begin{verbatim}
+struct if_stmt;
+
+struct var {
+  ...
+  virtual void if_code(if_stmt*); // 仮想函数. if 文のコード生成
+};
+
+struct var01 : var {
+               // 上記例における t2 に対して
+  int m_one;   // t2 := 1 の場所を記録します
+  int m_zero;  // t2 := 0 の場所を記録します
+  ...
+  void if_code(if_stmt*);  // 仮想函数の上書き.
+                           // より短い 3 番地コードを生成します.
+};
+
+template<class T> struct constant : usr {
+  ...
+  void if_code(if_stmt*);  // 仮想函数の上書き.
+                           // より短い 3 番地コードを生成します.
+};
+
+struct constant<void*> : usr {
+  ...
+  void if_code(if_stmt*);  // 仮想函数の上書き.
+                           // より短い 3 番地コードを生成します.
+};
+\end{verbatim}
+文に対するコード生成は次の章で詳しく述べます. {\tt{var::not}} は
+以下のようになります.
+\begin{verbatim}
+var* var::not()
+{
+  var* expr = rvalue();
+  const type* T = expr->m_type;
+  if ( !T->scalar() ) {
+    // スカラ型でないのでエラーとなります.
+  }
+  expr = expr->promotion();
+  usr* zero = integer::create(0);
+  usr* one = integer::create(1);
+  var01* ret = new var01(int_type::create());
+  if ( block* b = dynamic_cast<block*>(scope::current) )
+    b->m_vars.push_back(ret);
+  var* tmp = zero->cast(expr->m_type);
+  goto3ac* goto1 = new goto3ac(goto3ac::NE,expr,tmp);
+  code.push_back(goto1);
+  ret->m_one = code.size();
+  code.push_back(new assign3ac(ret,one));
+  goto3ac* goto2 = new goto3ac;
+  code.push_back(goto2);
+  to3ac* to1 = new to3ac;
+  to1->m_goto.push_back(goto1);
+  code.push_back(to1);
+  goto1->m_to = to1;
+  ret->m_zero = code.size();
+  code.push_back(new assign3ac(ret,zero));
+  to3ac* to2 = new to3ac;
+  code.push_back(to2);
+  to2->m_goto.push_back(goto2);
+  goto2->m_to = to2;
+  return ret;
+}
+\end{verbatim}
+
+\subsection{{\tt{sizeof}} 演算子}
+\index{sizeof@\tt{sizeof}}
+
+{\tt{sizeof}} 演算子が式をオペランドとしたとき
+オペランドの式のコードを生成することは間違いです.
+このためオペランドの式のコード生成をする前の
+3 番地コードの数を記憶し, 結果を返す前に
+オペランドに対して生成した 3 番地コードを
+削除する必要があります.
+\begin{verbatim}
+struct sizeof_expr : expr {
+  const type* m_type;
+  expr* m_expr;
+  sizeof_expr(const type* T) : m_type(T), m_expr(0) {}
+  sizeof_expr(expr* E) : m_type(0), m_expr(E) {}
+  var* eval()
+  {
+    if ( m_type ) {
+      int n = m_type->size();
+      if ( !n ) {
+        // 不完全型, 函数, void に sizeof を適用しているので
+        // エラーとなります.
+      }
+      return integer::create(n);
+    }
+
+    int m = code.size();  // オペランド評価前の 3 番地コードの数
+    var* ret = m_expr->eval();
+    ret = ret->size();  // 仮想函数呼び出し
+    code.resize(m);  // ここで元に戻します.
+    return ret;
+  }
+};
+\end{verbatim}
+これまでの演算子のように {\tt{var::size}} を仮想函数として
+定義します.
+\begin{verbatim}
+struct var {
+  ...
+  virtual var* size();  // 仮想函数
+};
+
+var* var::size()
+{
+  var* y = rvalue();
+  int n = y->m_type->size();
+  if ( !n ) {
+    // 不完全型や void に sizeof を適用しているので
+    // エラーとなります.
+  }
+  return integer::creat(n);
+}
+\end{verbatim}
+ポインタの生成規則が適用された式の評価の結果に
+{\tt{sizeof}} が適用された場合は規則の例外となります.
+\begin{verbatim}
+struct generated : virtual var {
+  const type* m_org;  // ポインタの生成規則適用前の型
+  ...
+  var* size()  // 仮想函数の上書き
+  {
+    int n = m_org->size();
+    if ( !n ) {
+      // 函数, 不完全型配列に sizeof を適用したので
+      // エラーとなります.
+    }
+    return integer::create(n);
+  }
+};
+\end{verbatim}
+ビットフィールドに対しては以下のようにエラーとします.
+\begin{verbatim}
+struct refbit : refaddr {
+  ...
+  var* size() // 仮想函数の上書き
+  {
+    // ビットフィールドに対して sizeof を適用しているので
+    // エラーとなります.
+  }
+};
+\end{verbatim}
+
+\section{\tt{cast-expression}}
+\index{cast-expression@\tt{cast-expression}}
+
+キャストの型にはスカラ型と {\tt{void}} 型が指定できます.
+また, ポインタと浮動小数点型との変換はエラーになります.
+\begin{verbatim}
+class cast_expr : expr {
+  const type* m_type;
+  expr* m_expr;
+  cast_expr(const type* T, expr* E) : m_type(T), m_expr(E) {}
+  var* eval()  // 仮想函数の上書き
+  {
+    var* y = m_expr->eval();
+    y = y->rvalue();
+    if ( m_type->compatible(void_type::create()) ){
+      var* ret = new var(void_type::create());
+      return ret;
+    }
+    if ( !m_type->scalar() ){
+      // スカラ型でないのでエラーとなります.
+    }
+    m_type = cast_impl::valid(m_type,y);
+    if ( !m_type ){
+      // ポインタと浮動小数点型との変換なのでエラーとなります.
+    }
+    return expr->cast(m_type); // 仮想函数呼び出し
+  }
+};
+\end{verbatim}
+函数呼び出しにおける引数を, 対応するパラメータに
+変換する部分等で仮想函数 {\tt{var::cast}} を呼び出して
+いました. これまでと同様に仮想函数を定義し, 必要であれば
+それを上書きします.
+\begin{verbatim}
+struct var {
+  ...
+  virtual var* cast(const type*);  // 仮想函数. 最も一般的な処理.
+};
+
+template<class T> struct constant : usr {
+  ...
+  var* cast(const type*);  // 仮想函数の上書き.
+                           // フロントエンド実行時評価をします.
+};
+
+struct addrof : virtual var {
+  ...
+  var* cast(const type*);  // 仮想函数の上書き.
+                           // addrof を結果として返します.
+};
+\end{verbatim}
+
+\section{\tt{multiplicative-expression}}
+\label{expr011}
+\index{multiplicative-expression@\tt{multiplicative-expression}}
+
+二項の {\tt{*}}, {\tt{/}} は算術型について定義されています.
+また {\tt{\%}} は整数型について定義されています.
+演算に先立って算術変換\index{さんしゆつへんかん@算術変換}
+がされます.
+この節では簡単に, 二項の {\tt{*}} 演算子についてのみ考えてみます.
+
+演算子が算術型の定数に適用された場合を考慮して, これまで通り
+仮想函数を定義し, 必要に応じて上書きすることにします.
+\begin{verbatim}
+struct var {
+  ...
+  // 算術変換後の this * z 演算の評価をします.
+  virtual var* mul(var* z);
+
+  // 算術変換後の y * this 演算の評価をします.
+  // 実行時の定数の評価に使います.
+  virtual var* mulr(constant<int>* y);
+  virtual var* mulr(constant<unsigned int>* y);
+  virtual var* mulr(constant<long int>* y);
+  virtual var* mulr(constant<unsigned long int>* y);
+  virtual var* mulr(constant<long long int>* y);
+  virtual var* mulr(constant<unsigned long long int>* y);
+  virtual var* mulr(constant<float>* y);
+  virtual var* mulr(constant<double>* y);
+  virtual var* mulr(constant<long double>* y);
+};
+\end{verbatim}
+{\tt{mulr}} はテンプレートを使いたいところですが, 残念ながらテンプレートメンバ函数
+は仮想函数とすることができないのでの上の 9 つの仮想函数を宣言する必要があります.
+\begin{verbatim}
+namespace var_impl { var* mul(var*, var*); }
+var* var::mul(var* z){ return var_impl::mul(this,z); }
+var* var::mulr(constant<int>* y){ return var_impl::mul(y,this); }
+...
+var* var::mulr(constant<long double>* y){ return var_impl::mul(y,this); }
+\end{verbatim}
+共通のコード {\tt{var\_impl::mul}} は以下のようになります.
+\begin{verbatim}
+// y * z に対してコード生成をします.
+var: var_impl::mul(var* y, var* z)
+{
+  // この函数が呼ばれる前に算術変換をしておきます. 
+  const type* T = y->m_type;
+  var* x = new var(T);
+  if ( block* b = dynamic_cast<block*>(scope::current) )
+    b->m_vars.push_back(x);
+  code.push_back(new mul3ac(x,y,z)); // x := y * z を生成します
+  return x;
+}
+\end{verbatim}
+算術変換については後述するとして, 算術定数に対する
+二項の {\tt{*}} は以下のように処理します.
+\begin{verbatim}
+// V = char, signed char, unsigned char, short int, unsigned short int
+template<class V> struct constant : usr {
+  V m_value;
+  ...
+  // mul(var*) は上書きしません.
+  // mulr(constant<int>*) 等も上書きしません.
+};
+
+// 特別バージョンを宣言して ...
+template<> struct constant<int> : usr {
+  int m_value;
+  var* mul(var* z)  // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して二項の * を評価します.
+    // z が定数でなければ通常通りのコード生成が行われます.
+    return z->mulr(this);
+  }
+
+  // 仮想函数の上書き
+  // 以下では int 型の算術定数 * 算術定数を実行時評価します.
+  var* mulr(constant<int>* y)
+  {
+     return new constant<int>(y->m_value * m_value);
+  }
+
+   // 算術変換が適切に行われるので他の mulr(constant<unsigned int>*)
+   // 等は上書きしません.
+   // (int) * (unsigned int) は (unsigned int) * (unsigned int)
+   // になるので constant<unsigned int>::mulr(constant<unsigned int>*)
+   // が結果的に呼ばれます.
+};
+\end{verbatim}
+参考文献 \cite{ISO}「6.2.1.7 Usual arithmetic conversions」では
+算術変換について述べられています. 規則が少し複雑な部分も考慮
+すると以下のようになります.
+\begin{verbatim}
+const type* conversion::arithmetic(var** y, var** z)
+{
+  const type* Ty = (*y)->m_type;
+  const type* Tz = (*z)->m_type;
+  if ( !Ty->arithmetic() || !Tz->arithmetic() )
+    return 0;
+  *y = (*y)->promotion();
+  *z = (*z)->promotion();
+  { const type* Tx = long_double_type::create(); if ( match(Tx,y,z) ) return Tx; }
+  { const type* Tx = double_type::create();      if ( match(Tx,y,z) ) return Tx; }
+  { const type* Tx = float_type::create();       if ( match(Tx,y,z) ) return Tx; }
+  { const type* Tx = ulong_long_type::create();  if ( match(Tx,y,z) ) return Tx; }
+  { const type* Tx = long_long_type::create();   if ( match(Tx,y,z) ) return Tx; }
+  { const type* Tx = ulong_type::create();       if ( match(Tx,y,z) ) return Tx; }
+  if ( const type* Tx = match(y,z) ) return Tx;
+  { const type* Tx = long_type::create();        if ( match(Tx,y,z) ) return Tx; }
+  { const type* Tx = uint_type::create();        if ( match(Tx,y,z) ) return Tx; }
+  return int_type::create();
+}
+\end{verbatim}
+ここで {\tt{match(Tx,y,z)}} は {\tt{y}} か {\tt{z}} のいずれか一方の型が
+型 {\tt{Tx}} と {\em compatible} であるかどうかを問い合わせることが
+できるとします. もう一つの {\tt{match(y,z)}} は {\tt{y}} か {\tt{z}}
+のいずれか一方の型が {\tt{long int}} で他方が {\tt{unsigned int}} である
+場合を処理するとしますが, 簡単のためここでは省略します.
+
+\section{\tt{additive-expression}}
+\index{additive-expression@\tt{additive-expression}}
+
+\subsection{二項 {\tt{+}} 演算子}
+\label{expr014}
+二項の {\tt{+}} 演算子は算術型の他, ポインタと整数型, 整数型とポインタ型
+についても定義されています. \ref{expr011} と同様にいくつかの仮想函数
+を定義し, 必要ならば上書きします.
+\begin{verbatim}
+struct var {
+  ...
+  // 算術変換後の this + z 演算の評価をします.
+  virtual var* add(var* z);
+
+  // 算術変換後の y + this 演算の評価をします.
+  // 実行時の定数の評価に使います.
+  virtual var* addr(constant<int>* y);
+  ...
+  virtual var* addr(constant<long double>* y);
+  virtual var* addr(constant<void*>* y);
+  virtual var* addr(addrof* y);
+};
+\end{verbatim}
+最後の 2 つの仮想函数はオペランドがポインタの場合の実行時評価用のものです.
+\begin{verbatim}
+namespace var_impl { var* add(var*, var*); }
+var* var::add(var* z){ return var_impl::add(this,z); }
+var* var::addr(constant<void*>* y){ return var_impl::add(y,this); }
+var* var::addr(addrof* y){ return var_impl::add(y,this); }
+\end{verbatim}
+共通のコード {\tt{var\_impl::add}} は以下のようになります.
+\begin{verbatim}
+namespace var_impl { var* pointer_integer(int op, var* y, var* z); }
+
+// y + z に対してコード生成をします.
+var* var_impl::add(var* y, var* z)
+{
+  // 事前に算術変換がされているとします.
+  if ( var* r = pointer_integer('+',y,z) )
+    return r;
+  if ( var* r = pointer_integer('+',z,y) )
+    return r;
+
+  const type* Ty = y->m_type;
+  const type* Tz = z->m_type;
+  if (!Ty->arithmetic() || !Tz->arithmetic()) {
+    // 算術変換できていなかったのでエラーとなります.
+  }
+
+  var* x = new var(T);
+  if ( block* b = dynamic_cast<block*>(scope::current) )
+    b->m_vars.push_back(x);
+  code.push_back(new add3ac(x,y,z)); // x := y + z を生成します
+  return x;
+}
+\end{verbatim}
+ポインタと整数との演算を処理する {\tt{var\_impl::pointer\_integer}} は後述
+するとして, まず, {\tt{constant<int>}} や {\tt{addrof}} で
+どのように仮想函数の上書きをするかを述べます.
+\begin{verbatim}
+template<> struct constant<int> : usr {
+  int m_value;
+  ...
+  var* add(var* z)  // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して二項の + を評価します
+    return z->addr(this);
+  }
+
+  // 仮想函数の上書き
+  // int 型の算術定数 + 算術定数を実行時評価します.
+  var* addr(constnat<int>* y)
+  {
+    return new contant<int>(y->m_value + m_value);
+  }
+
+  // 仮想函数の上書き
+  // 定数ポインタ + int 型の算術定数を実行時評価します.
+  var* addr(constant<void*>* y)
+  {
+    const type* T = y->m_type;
+    T = T->complete_type();
+    int sz = T->size();
+    if (!sz) {
+      // エラー
+    }
+    char* p = reinterpret_cast<char*>(y->m_value);
+    return new constant<void*>(p + sz * m_value);
+  }
+
+  // 仮想函数の上書き
+  // 以下では addrof + int 型算術定数を実行時評価します.
+  var* addr(addrof* y);
+};
+
+template<> struct constant<void*> : usr {  // 定数ポインタ
+  ...
+  var* add(var* z) // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して二項の + を評価します
+    return z->addr(this);
+  }
+
+  // 仮想函数の上書き
+  // 以下では算術定数 + 定数ポインタを実行時評価します.
+  var* addr(constnat<int>* y);
+  ...
+  var* addr(constant<unsigned long long int>* y);
+
+  // 定数ポインタ + 定数ポインタはエラーなので
+  // var::addr(constant<void*>* y) を上書きする必要がありません.
+
+  // addrof + 定数ポインタはエラーなので
+  // var::addr(addrof* y) を上書きする必要がありません.
+};
+
+struct addrof : virtual var {
+  ...
+  var* add(var* z)  // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して二項の + を評価します
+    return z->addr(this);
+  }
+
+  // 仮想函数の上書き
+  // 以下では整定数 + addrof を実行時評価します.
+  var* addr(constant<int>* y);
+  ...
+  var* addr(constant<unsigned long long int>* y);
+
+  // 定数ポインタ + addrof はエラーなので
+  // var::addr(constant<void*>* y) を上書きする必要がありません.
+
+  // addrof + addrof はエラーなので
+  // var::addr(addrof*) を上書きする必要がありません.
+};
+\end{verbatim}
+ポインタと整数に対して加算が定義されているか
+を判定する {\tt{var\_impl::pointer\_integer}} は以下のようになります.
+\begin{verbatim}
+// y op z が定義されているかどうかを判定します.
+// ここで op は + か - かのいずれかであるとします.
+// また y の型はポインタ型で z は整数型の場合に 0 以外を返します.
+var* var_impl::pointer_integer(int op, var* y, var* z)
+{
+  const type* Ty = y->m_type;
+  Ty = Ty->unqualified();
+  typedef const pointer_type PT;
+  PT* pt = dynamic_cast<PT*>(Ty);
+  if ( !pt )
+    return 0;  // ポインタ型ではない
+  const type* Tz = z->m_type;
+  if ( !Tz->integer() )
+    return 0;  // 整数型ではない
+  const type* T = pt->referenced_type();
+  T = T->complete_type();
+  int n = T->size();
+  if ( !n ) {
+    // 不完全型, 函数型, void 型へのポインタと
+    // 整数との演算なのでエラーとなります.
+  }
+  var* size = integer::create(n);
+  var* zz = expr::binary('*', z, size);  // zz := z * sizeof(T) を生成します
+  var* x = new var(Ty);
+  if ( block* b = static_cast<block*>(scope::current) )
+    b->m_vars.push_back(x);
+  if ( op == '+' ) {
+    // x := y + zz を生成します
+    code.push_back(new add3ac(x,y,zz));
+  }
+  else {
+    // x := y - zz を生成します
+    code.push_back(new sub3ac(x,y,zz));
+  }
+  return x;
+}
+\end{verbatim}
+
+\subsection{二項 {\tt{-}} 演算子}
+\label{expr018}
+二項の {\tt{-}} 演算子は算術型の他, ポインタと整数型, ポインタとポインタに
+ついて定義されています. 二項の {\tt{+}} 演算子 \ref{expr014} とほとんど
+同じ議論になります. 共通のコード {\tt{var\_impl::add}} は
+{\tt{var\_impl::sub}} に置き換えられます.
+\begin{verbatim}
+namespace var_impl { var* pointer_pointer(var* y, var* z); }
+
+// y - z に対してコード生成をします.
+var* var_impl::sub(var* y, var* z)
+{
+  // 事前に算術変換がされているとします.
+  if ( var* r = pointer_pointer(y,z) )
+    return r;
+  if ( var* r = pointer_integer('-',y,z) )
+    return r;
+
+  const type* Ty = y->m_type;
+  const type* Tz = z->m_type;
+  if (!Ty->arithmetic() || !Tz->arithmetic()) {
+    // 算術変換できていなかったのでエラーとなります.
+  }
+  var* x = new var(T);
+  if ( block* b = dynamic_cast<block*>(scope::current) )
+    b->m_vars.push_back(x);
+  code.push_back(new sub3ac(x,y,z)); // x := y - z を生成します
+  return x;
+}
+\end{verbatim}
+ポインタとポインタとの演算を処理する {\tt{var\_impl::pointer\_pointer}} は後述
+するとして, まず, {\tt{constant<T>}} や {\tt{addrof}} で
+どのように仮想函数の上書きをするかを述べます.
+\begin{verbatim}
+template<> struct constant<int> : usr {
+  ...
+  var* sub(var* z)  // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して二項の - を評価します
+    return z->subr(this);
+  }
+
+  // 仮想函数の上書き
+  // 以下は int 型の算術定数 - 算術定数を実行時評価します.
+  var* subr(constnat<int>* y)
+  {
+    return new contant<int>(y->m_value - m_value);
+  }
+
+  // 仮想函数の上書き
+  // 定数ポインタ - int 型算術定数を実行時評価します.
+  var* subr(constant<void*>* y);
+
+  // 仮想函数の上書き
+  // addrof - int 型算術定数を実行時評価します.
+  var* subr(addrof* y);
+};
+
+template<> struct constant<void*> : usr {  // 定数ポインタ
+  ...
+  var* sub(var* z)  // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して二項の - を評価します
+    return z->subr(this);
+  }
+
+  // 整定数 - 定数ポインタはエラーなので
+  // var::subr(constant<T>*) は上書きしません.
+
+  // 定数ポインタ - 定数ポインタに対して特別な評価をしたいので
+  // 仮想函数を上書きします.
+  var* subr(constant<void*>* y);
+};
+
+struct addrof : virtual var {
+  ...
+  var* sub(var* z)  // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して二項の - を評価します
+    return z->subr(this);
+  }
+
+  // 整定数 - addrof はエラーなので
+  // var::subr(constant<T>*) は上書きしません.
+
+  // addrof - addrof に対して特別な評価をしたいので
+  // 仮想函数を上書きします.
+  var* subr(addrof* y);
+};
+\end{verbatim}
+ポインタとポインタに対して減算が定義されているかどうかを
+判定する函数 {\tt{var\_impl::pointer\_pointer}} は以下のようになります.
+\begin{verbatim}
+var* var_impl::pointer_pointer(var* y, var* z)
+{
+  typedef const pointer_type PT;
+  const type* Ty = y->m_type;
+  Ty = Ty->unqualified();
+  PT* py = dynamic_cast<PT*>(Ty);
+  if ( !py )
+    return 0;
+  const type* Tz = z->m_type;
+  Tz = Tz->unqualified();
+  PT* pz = dynamic_cast<PT*>(Tz);
+  if ( !pz )
+    return 0;
+  if ( !py->compatible(pz) ){
+    // ポインタとポインタの減算ですが, 型 compatible
+    // でないのでエラーとなります.
+  }
+  const type* T = py->referenced_type();
+  int n = T->size();
+  if ( !n ) {
+    // 函数, 不完全型, void 型に対するポインタの減算なので
+    // エラーとなります.
+  }
+  var* s = integer::create(n);
+  var* x = new var(long_type::create());
+  var* t = new var(long_type::create());
+  if ( block* b = dynamic_cast<block*>(scope::current) ){
+    b->m_vars.push_back(x);
+    b->m_vars.push_back(t);
+  }
+  code.push_back(new sub3ac(t,y,z));  // t := y - z を生成し
+  code.push_back(new div3ac(x,t,s));  // x := t / s を生成します.
+  return x;
+}
+\end{verbatim}
+
+\section{\tt{shift-expression}}
+\index{shift-expression@\tt{shift-expression}}
+\label{expr026}
+シフト演算子は整数型と整数型について定義されています.
+結果の型が被シフト数の型になるところが, 他の二項演算子と
+異なるところです.
+
+これまでの二項演算子同様, シフト演算子の評価のための仮想函数を
+定義し, 必要であればそれを上書きします. 以下, 右シフトについて
+述べます.
+\begin{verbatim}
+struct var {
+  ...
+  // this >> z を評価します.
+  virtual var* rsh(var* z);
+
+  // y >> this を評価します.
+  virtual var* rshr(constant<int>* y);
+  ...
+  virtual var* rshr(constant<unsigned long long int>* y);
+};
+
+namespace var_impl { var* rsh(var*, var*); }
+var* var::rsh(var* z){ return var_impl::rsh(this,z); }
+var* var::rshr(constant<int>* y){ return var_impl::rsh(y,this); }
+...
+var* var::rshr(constant<unsigned long long int>* y){ return var_impl::rsh(y,this); }
+\end{verbatim}
+定数では実行時評価のために仮想函数を上書きします.
+\begin{verbatim}
+template<> struct constant<int> : usr {
+  ...
+  var* rsh(var* z)  // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して右シフトを評価します
+    return z->rshr(this);
+  }
+
+  // 仮想函数の上書き. 他の 2 項演算子と異なり, 
+  // rshr(constant<int>*) 以外も上書きする必要があります.
+  var* rshr(constant<int>* y);
+  var* rshr(constant<unsigned int>* y);
+  var* rshr(constant<long int>* y);
+  var* rshr(constant<unsigned long int>* y);
+  var* rshr(constant<long long int>* y);
+  var* rshr(constant<unsigned long long int>* y);
+};
+\end{verbatim}
+{\tt{var\_impl::rsh}} は以下のようになります.
+\begin{verbatim}
+// y >> z に対してコード生成をします.
+var* var_impl::rsh(var* y, var* z)
+{
+  if ( !y->m_type->integer() || !z->m_type->integer() ) {
+    // 両方が整数型でないのでエラーとなります
+  }
+  const type* T = y->m_type; // 結果は第 1 オペランドの型になります 
+  T = T->unqualified();
+  var* x = new var(T);
+  if ( block* b = dynamic_cast<block*>(scope::current) )
+    b->m_vars.push_back(x);
+  code.push_back(new rsh3ac(x,y,z)); // x := y >> z の生成
+  return x;
+}
+\end{verbatim}
+
+\section{\tt{relational-expression}}
+\label{expr020}
+\index{relational-expression@\tt{relational-expression}}
+
+関係演算子 {\tt{<}}, {\tt{>}}, {\tt{<=}}, {\tt{>=}}
+は 3 番地コードとして分岐命令を使用することになる点で他の二項演算子とは
+異なる性質をもちます.
+ここでも
+算術変換\index{さんしゆつへんかん@算術変換}が
+されますが, ポインタとポインタの比較も定義されています.
+比較演算子の結果の型は {\tt{int}} で 0 か 1 かのいずれかになります.
+\ref{expr016} では {\tt{!}} 演算子の 3 番地コードを生成する場合に
+評価の結果を図 \ref{expr013} における {\tt{var01}} にしましたが,
+ここでも同じ理由から結果を {\tt{var01}} で表現することにします.
+
+これまでと同じように, 関係演算子の評価のための仮想函数を定義します.
+\begin{verbatim}
+struct var {
+  ...
+  // this < y を評価します
+  virtual var* lt(var* z);
+
+  // y < this を評価します.
+  virtual var* ltr(constant<int>* y);
+  ...
+  virtual var* ltr(constant<long double>* y);
+  virtual var* ltr(constant<void*>* y);
+  virtual var* ltr(addrof* y);
+};
+
+namespace var_impl { var* lt(var*, var*); }
+var* var::lt(var* z){ return var_impl::lt(this,z); }
+var* var::ltr(constant<char>* y){ return var_impl::lt(y,this); }
+...
+var* var::ltr(constant<void*>* y){ return var_impl::lt(y,this); }
+var* var::ltr(addrof* y){ return var_impl::lt(y,this); }
+\end{verbatim}
+定数では実行時評価のために仮想函数を上書きします.
+\begin{verbatim}
+template<> struct constant<int> : usr {
+  ...
+  var* lt(var* z)  // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して < 演算子を評価します.
+    return z->ltr(this);
+  }
+  // 仮想函数の上書き
+  // 実行時評価を行います.
+  var* ltr(constant<int>* y);
+
+  // ポインタと整数に対して関係演算子は定義されていないので
+  // var* ltr(constant<void*>*);
+  // var* ltr(addrof*);
+  // は上書きしません.
+};
+
+template<> struct constant<void*> : usr {  // 定数ポインタ
+  ...
+  var* lt(var* z)  // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して < 演算子を評価します.
+    return z->ltr(this);
+  }
+
+  // 仮想函数の上書き
+  // 実行時評価のために, この演算のみ特別な処理をします.
+  var* ltr(constant<void*>*);
+};
+
+struct addrof : virtual var {
+  ...
+  var* lt(var* z)  // 仮想函数の上書き
+  {
+    // もう一方のオペランドに依存して < 演算子を評価します.
+    return z->ltr(this);
+  }
+
+  // 仮想函数の上書き
+  // 実行時評価のために, この演算のみ特別な処理をします.
+  var* ltr(addrof*);
+};
+\end{verbatim}
+{\tt{var\_impl::lt}} は以下のようになります.
+\begin{verbatim}
+namespace var_impl { var* cmp(goto3ac::op, var*, var*); }
+var* var_impl::lt(var* y, var* z){ return cmp(goto3ac::LT,y,z); }
+namespace var_impl { namespace cmp_impl {
+  bool valid_pointer(goto3ac::op, var*, var*);
+} }
+
+var* var_impl::cmp(goto3ac::op op, var* y, var* z)
+{
+  // 算術変換がすでに適用されているとします.
+  const type* Ty = y->m_type;
+  const type* Tz = z->m_type;
+  if (!Ty->arithmetic() || !Tz->arithmetic()) {
+    if ( !cmp_impl::valid_pointer(op,y,z) ) {
+      // 比較演算が定義されていないのでエラーとなります.
+    }
+  }
+  usr* zero = integer::create(0);
+  usr* one = integer::create(1);
+  var01* ret = new var01(int_type::create());
+  if ( block* b = dyanmic_cast<block*>(scope::current) )
+    b->m_vars.push_back(ret);  // 結果を記号表に追加します.
+
+  // 条件が成立しなければジャンプするようなコードを生成します.
+  goto3ac* goto1 = new goto3ac(opposite[op],y,z);
+  code.push_back(goto1);
+  ret->m_one = code.size();  // ret := 1 の場所を記録します.
+  code.push_back(new assign3ac(ret,one));
+  goto3ac* goto2 = new goto3ac;
+  code.push_back(goto2);
+  to3ac* to1 = new to3ac;
+  code.push_back(to1);
+  to1->m_goto.push_back(goto1);
+  goto1->m_to = to1;
+  ret->m_zero = code.size();  // ret := 0 の場所を記録します.
+  code.push_back(new assign3ac(ret,zero));
+  to3ac* to2 = new to3ac;
+  code.push_back(to2);
+  to2->m_goto.push_back(goto2);
+  goto2->m_to = to2;
+  return ret;
+}
+\end{verbatim}
+関係演算子におけるポインタの比較では互いの型が {\em compatible} である
+必要があります. {\tt{cmp\_impl::valid\_pointer}} は以下のようになります.
+\begin{verbatim}
+bool var_impl::cmp_impl::valid_pointer(goto3ac::op op, var* y, var* z)
+{
+  const type* Ty = y->m_type;
+  const type* Tz = z->m_type;
+  typedef const pointer_type PT;
+  PT* py = dynamic_cast<PT*>(Ty);
+  PT* pz = dynamic_cast<PT*>(Tz);
+  if ( py && pz && py->compatible(pz) )
+    return true;
+  if ( op != goto3ac::EQ && op != goto3ac::NE )
+    return false;
+  ...
+}
+\end{verbatim}
+
+\section{\tt{equality-expression}}
+\label{expr012}
+\index{equality-expression@\tt{equality-expression}}
+
+等価演算子 {\tt{==}}, {\tt{!=}} は関係演算子と
+同様のオペランドが定義されているとともに, 
+{\tt{void}} ポインタとポインタの比較,
+整定数 0 とポインタの比較も定義されています. \ref{expr020}
+で述べた  {\tt{cmp\_impl::valid\_pointer}} の完全なものは
+以下のようになります.
+\begin{verbatim}
+bool var_impl::cmp_impl::valid_pointer(goto3ac::op op, var* y, var* z)
+{
+  const type* Ty = y->m_type;
+  const type* Tz = z->m_type;
+  typedef const pointer_type PT;
+  PT* py = dynamic_cast<PT*>(Ty);
+  PT* pz = dynamic_cast<PT*>(Tz);
+  if ( py && pz && py->compatible(pz) )
+    return true;
+  if ( op != goto3ac::EQ && op != goto3ac::NE )
+    return false;
+
+  // void ポインタとの比較が定義されています.
+  const type* vp = pointer_type::create(void_type::create());
+  if ( py && pz && pz->compatible(vp) )
+    return true;
+  if ( pz && py && py->compatible(vp) )
+    return true;
+
+  // 整定数 0 との比較が定義されています.
+  if ( py && z->isconstant() && (Tz->integer() || Tz->compatible(vp) ) )
+    return z->int_value() == 0;
+  if ( pz && y->isconstant() && (Ty->integer() || Ty->compatible(vp) ) )
+    return y->int_value() == 0;
+
+  return false;
+}
+\end{verbatim}
+
+\section{\tt{AND-expression}}
+\label{expr021}
+二項の {\tt{\&}} 演算子は整数型について定義されています. 演算前に算術変換
+\index{さんしゆつへんかん@算術変換}がされます. これまで同様,
+いつくかの仮想函数を {\tt{var}} で定義し, 
+整定数での実行時評価のために {\tt{constant<int>}} 等で仮想函数を
+上書きすればよいことになります.
+
+\section{\tt{exclusive-OR-expression}}
+ここでの議論は \ref{expr021} と同様なので省略します.
+
+\section{\tt{inclusive-OR-expression}}
+ここでの議論は \ref{expr021} と同様なので省略します.
+
+\section{\tt{logical-AND-expression}}
+\label{expr022}
+{\tt{\&\&}} 演算子は左のオペランドが非ゼロの場合に
+右のオペランドが評価されるということがこれまでの二項演算子と異なる点です.
+
+ここで,
+上向き構文解析の過程で, {\tt{\&\&}} 演算子に対する構文解析木を作成し,
+式の評価をする状況を考えてみます.
+\begin{verbatim}
+struct bin_expr : expr {  // 構文解析木のノード
+  int m_op;
+  expr* m_left;
+  expr* m_right; 
+  var* eval()
+  {
+    if ( m_op == ANDAND ) {
+      ... // && 演算子の評価をします
+    }
+  }
+};
+\end{verbatim}
+これまでの二項演算子を評価するとき,
+左オペランドの式に対して評価をし, 
+その結果を {\tt{var* y}} として求め,
+右オペランドの式に対して評価をし, その結果を {\tt{var* z}} として
+求め, 仮想函数 $vf$ を {\tt{y->$vf$(z)}} の形で呼
+び出していました. {\tt{\&\&}} 演算子に
+対しても同様の処理をするとすれば, 右オペランドのコードを移動する
+必要があります.
+\begin{verbatim}
+var* bin_expr::eval()
+{
+  var* y = m_left->eval();
+  int n = code.size();  // 右オペランドを評価する前の 3 番地コードの
+                        // 量を記憶しておきます.
+  var* z = m_right->eval();
+  ...
+  if ( op == ANDAND ) {
+    // code.begin()+n, ..., code.end() には m_right の
+    // コードがあります.
+    return y->logical_and(n,z);  // n を渡します.
+  }
+}
+\end{verbatim}
+コードを移動するのを避けたいのであれば {\tt{m\_right}} に対して
+{\tt{eval}} を呼び出さないで仮想函数 {\tt{logical\_and(expr*)}}
+を {\tt{m\_right}} を引数として呼び出します.
+
+やはりこれまでの二項演算子と同様, 仮想函数を定義し, 必要に応じて
+上書きすることになります.
+\begin{verbatim}
+struct var {
+  ...
+  // this && z を評価します.
+  virtual var* logical_and(int n, var* z);
+  // 左オペランドが非ゼロの場合の評価をします.
+  virtual var* logical_and2();
+}
+
+template<class T> struct constant : usr {  // 算術定数
+  ...
+  var* logical_and(int n, var* z);  // 仮想函数の上書き
+  var* logical_and2();              // 仮想函数の上書き
+};
+
+template<> struct constant<void*> : usr {  // 定数ポインタ
+  ...
+  var* logical_and(int n, var* z);  // 仮想函数の上書き
+  var* logical_and2();              // 仮想函数の上書き
+};
+\end{verbatim}
+ここで {\tt{\&\&}} 演算子のコードが {\tt{do-while}} 文の式で使用された状況を
+考えてみましょう.
+\begin{verbatim}
+void f(int y, int z)
+{
+  do {
+    y >>= 1;
+    z >>= 1;
+    ...
+  } while ( y && z );
+}
+\end{verbatim}
+これに対する 3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+label:
+  y := y >> 1
+  z := z >> 1
+  ...
+  if y == 0 goto end
+  if z == 0 goto end
+  goto label
+end:
+\end{verbatim}
+同様の考察を, 例えば \ref{expr016} の {\tt{!}} 演算子や
+\ref{expr020} の関係演算子に対して行なえば, それらに対する
+コード生成とは別のコード生成のしかたをすることで,
+より短いコードが出力できることが分かります. そこで,
+\begin{verbatim}
+struct do_stmt;
+
+struct var {
+  ...
+  virtual void do_code(do_stmt*, to3ac*); // 仮想函数. do-while 文のコード生成
+};
+
+struct var01 : var {
+  ...
+  void do_stmt(do_stmt*, to3ac*);  // 仮想函数の上書き.
+                                   // より短い 3 番地コードを生成します.
+};
+
+struct log01 : var01 {
+  int m_goto1;      // 1 つ目のジャンプ文の場所を記憶しておきます.
+  ...
+  void do_stmt(do_stmt*, to3ac*);  // 仮想函数の上書き.
+                                   // より短い 3 番地コードを生成します.
+};
+\end{verbatim}
+とするばよいことになります.
+文に対するコード生成は次の章で詳しく述べます. {\tt{var::logical\_and}} は
+以下のように図 \ref{expr013} における {\tt{log01}} を評価の結果にするこ
+とにします.
+
+\begin{verbatim}
+var* var::logical_and(int n, var* z)
+{
+  // 一旦 z のコードを移動します。
+  vector<tac*> tmp;
+  copy(code.begin()+n,code.end(),back_inserter(tmp));
+  code.resize(n);
+
+  var* y = rvalue();
+  y = y->promotion();
+  const type* Ty = y->m_type;
+  usr* zero = integer::create(0);
+  usr* one = integer::create(1);
+
+  // 最初のジャンプ文を生成し, その場所を記憶しておきます.
+  goto3ac* goto1 = new goto3ac(goto3ac::EQ,y,zero->cast(Ty));
+  int m = code.size();
+  code.push_back(goto1);
+
+  // ここに z のコードを戻します.
+  copy(tmp.begin(),tmp.end(),back_inserter(code));
+  z = z->rvalue();
+  z = z->promotion();
+  const type* Tz = z->m_type;
+  if ( !Ty->scalar() || !Tz->scalar() ) {
+    // オペランドがスカラー型ではないのでエラーとなります.
+  }
+  goto3ac* goto2 = new goto3ac(goto3ac::EQ,z,zero->cast(Tz));
+  code.push_back(goto2);
+
+  // 式の評価の結果を log01 で表します.
+  log01* ret = new log01(int_type::create(),m);
+  if ( block* b = dynamic_cast<block*>(scope::current) )
+    b->m_vars.push_back(ret);
+
+  ret->m_one = code.size();  // var01 の情報もここでセットします.
+  code.push_back(new assign3ac(ret,one));
+  goto3ac* goto3 = new goto3ac;
+  code.push_back(goto3);
+  to3ac* to = new to3ac;
+  code.push_back(to);
+  to->m_goto.push_back(goto1);
+  to->m_goto.push_back(goto2);
+  goto1->m_to = goto2->m_to = to;
+
+  ret->m_zero = code.size();  // var01 の情報もここでセットします.
+  code.push_back(new assign3ac(ret,zero));
+  to3ac* to3 = new to3ac;
+  code.push_back(to3);
+  to3->m_goto.push_back(goto3);
+  goto3->m_to = to3;
+  return ret;
+}
+\end{verbatim}
+左オペランドが非ゼロであるとコンパイル時に分かれば, 生成される
+コードはより短かくなります. 以下の仮想函数でこれを処理します.
+\ref{expr016}, \ref{expr020} と同様に 図 \ref{expr013} にお
+ける {\tt{var01}} を評価の結果にすることにします.
+\begin{verbatim}
+var* var::logical_and2()
+{
+  var* z = rvalue();
+  z = z->promotion();
+  const type* Tz = z->m_type;
+  if ( !Tz->scalar() ) {
+    // オペランドがスカラー型ではないのでエラーとなります.
+  }
+  usr* zero = integer::create(0);
+  usr* one = integer::create(1);
+  goto3ac* goto1 = new goto3ac(goto3ac::NE,z,zero->cast(Tz));
+  code.push_back(goto1);
+  var01* ret = new var01(int_type::create());
+  if ( block* b = dynamic_cast<block*>(scope::current) )
+    b->m_vars.push_back(ret);
+
+  ret->m_zero = code.size();
+  code.push_back(new assign3ac(ret,zero));
+  goto3ac* goto2 = new goto3ac;
+  code.push_back(goto2);
+  to3ac* to1 = new to3ac;
+  code.push_back(to1);
+  to1->m_goto.push_back(goto1);
+  goto1->m_to = to1;
+  ret->m_one = code.size();
+  code.push_back(new assign3ac(ret,one));
+  to3ac* to2 = new to3ac;
+  code.push_back(to2);
+  to2->m_goto.push_back(goto2);
+  goto2->m_to = to2;
+  return ret;
+}
+\end{verbatim}
+
+\section{\tt{logical-OR-expression}}
+
+{\tt{||}} 演算子は \ref{expr022} の {\tt{\&\&}} 演算子と同様に
+左のオペランドの結果がゼロならば右のオペランドを評価する
+ということがこれまでの二項演算子と異なる点です.
+ここでの議論は \ref{expr022} と同様なので省略します.
+
+\section{\tt{conditional-expression}}
+
+三項演算子 {\tt{?:}} では第 1 オペランド
+はスカラ型でなくてはならず, それがゼロでない場合には
+第 2 オペランド, そうでなければ第 3 オペランドが評価されなくてはなりません.
+第 2 オペランドと第 3 オペランドには, これまでの演算子と比べて複雑な
+制限があります. 以下のいずれかが満たされなくてはなりません.
+\begin{itemize}
+\item 両方が算術型である. この場合結果の型は算術変換の型になります.
+\item 両方の型が構造体型か共用体型で, それぞれが {\em compatible} で
+      ある. この場合結果の型は {\em composite} な型になります.
+\item 両方の型が {\tt{void}} である. この場合結果の型は {\tt{void}} にな
+		ります.
+\item 両方の型がポインタ型で, それぞれが {\em compitible} である.
+      この場合結果の型は {\em composite} な型になります.
+
+\item 一方がポインタ型, 他方が整定数 0. この場合結果の型は一方で指定されたポイ
+      ンタ型になります.
+
+\item 一方がポインタ型, 他方が qualifier ありもしくはなしの {\tt{void}}
+      へのポインタである. この場合
+      結果の型は両方の qualifier を含んだ {\tt{void}} へのポインタとなり
+	ます.
+\end{itemize}
+結果の型が第 2 オペランド, 第 3 オペランドに依存し, しかし, 第 2 オペラ
+ンドも第 3 オペンランドも場合によって評価しなければならないことが分かり
+ます. \ref{expr022} の {\tt{\&\&}} 演算子で述べたように無条件に
+第 2, 第 3 オペランドを評価してコードの移動を行なうようにします.
+\begin{verbatim}
+struct cond_expr : expr {
+  expr* m_expr1;
+  expr* m_expr2;
+  expr* m_expr3;
+  ...
+  var* eval()  // 仮想函数の上書き
+  {
+    var* a = m_expr1->eval();
+    int n = code.size();
+    var* b = m_expr2->eval();
+    int m = code.size();
+    var* c = m_expr3->eval();
+    return a->cond(n,m,b,c); // 仮想函数呼び出し.
+  }
+};
+\end{verbatim}
+やはりこれまでと同様に仮想函数を定義し, 必要であれば上書きすることにしま
+す.
+\begin{verbatim}
+struct var {
+  ...
+  // this ? b : c を評価します.
+  virtual var* cond(int n, int m, var* b, var* c);
+};
+
+template<class T> struct constant : usr {
+  ...
+  var* cond(int n, int m, var* b, var* c);  // 仮想函数の上書き
+};
+
+struct constant<void*> : usr {
+  ...
+  var* cond(int n, int m, var* b, var* c);  // 仮想函数の上書き
+};
+
+struct var01 : var {
+  ...
+  var* cond(int n, int m, var* b, var* c);  // 仮想函数の上書き
+};
+\end{verbatim}
+これまで通り, 定数に対して仮想函数を上書きする他に
+図 \ref{expr013} における {\tt{var01}} も上書きします.
+これは必ずしも必要ではありませんが, より短いコードを出力する
+ことができるようになります.
+
+最も一般的なコード生成を行う {\tt{var::cond}} は以下のようになります.
+\begin{verbatim}
+namespace var_impl { var* cond(var* a, int n, var* b, int m, var* c);
+var::cond(int n, int m, var* b, var* c)
+{
+   return var_impl::cond(this,n,b,m,c); }
+}
+
+var* var_impl::cond(var* expr1, int y, var* expr2, int x, var* expr3)
+{
+  // 第 3 オペランドのコードを移動します.
+  vector<tac*> code3;
+  copy(code.begin()+x,code.end(),back_inserter(code3));
+  code.resize(x);
+
+  // 第 2 オペランドのコードを移動します.
+  vector<tac*> code2;
+  copy(code.begin()+y,code.end(),back_inserter(code2));
+  code.resize(y);
+
+  expr1 = expr1->rvalue();
+  if ( !expr1->m_type->scalar() ) {
+    // スカラでないのでエラーとなります.
+  }
+
+  // 1 つ目のジャンプ文を生成します.
+  var* zero = integer::create(0);
+  zero = zero->cast(expr1->m_type);
+  goto3ac* goto1 = new goto3ac(goto3ac::EQ,expr1,zero);
+  code.push_back(goto1);
+
+  // 第 2 オペランドのコードをここに移動します.
+  copy(code2.begin(),code2.end(),back_inserter(code));
+  expr2 = expr2->rvalue();
+
+  // 第 3 オペランドの右辺値参照コードを生成し移動しておきます.
+  int z = code.size();
+  expr3 = expr3->rvalue();
+  copy(code.begin()+z,code.end(),back_inserter(code3));
+  code.resize(z);
+
+  const type* T = cond_impl::valid(expr2,expr3);
+  if ( !T ) {
+    // 第 2, 第 3 オペランドに対して 3 項演算子が定義されていない
+    // のでエラーとなります.
+  }
+  var* ret = new var(T);
+  block* b = dynamic_cast<block*>(scope::current);
+  bool v = T->compatible(void_type::create());
+  if ( b && !v )
+    b->m_vars.push_back(ret);  // 結果を記号表に追加します.
+
+  if ( T->scalar() )
+    expr2 = expr2->cast(T);
+  if ( !v )
+    code.push_back(new assign3ac(ret,expr2));
+  goto3ac* goto2 = new goto3ac;
+  code.push_back(goto2);
+  to3ac* to1 = new to3ac;
+  code.push_back(to1);
+  to1->m_goto.push_back(goto1);
+  goto1->m_to = to1;
+
+  // 第 3 オペランドのコードをここに移動します
+  copy(code3.begin(),code3.end(),back_inserter(code));
+  if ( T->scalar() )
+    expr3 = expr3->cast(T);
+  if ( !v )
+    code.push_back(new assign3ac(ret,expr3));
+  to3ac* to2 = new to3ac;
+  code.push_back(to2);
+  to2->m_goto.push_back(goto2);
+  goto2->m_to = to2;
+  return ret;
+}
+\end{verbatim}
+
+\section{\tt{assignment-expression}}
+\label{expr025}
+
+代入演算子も他の演算子と同様に, 仮想函数を定義して必要であれば上書きする
+ようにします. 仮想函数は左オペランドを評価した結果に対して呼び出すことに
+します.
+\begin{verbatim}
+struct var {
+  ...
+  // this = right を評価します.
+  virtual var* assign(var* right)
+  {
+    // 左辺値を持たないのでエラーとなります.
+  }
+};
+\end{verbatim}
+少くとも左オペランドには左辺値が要求されるので
+\ref{expr023} で述べたように図 \ref{expr013} で
+左辺値を持つものについて仮想函数を上書きすることになります.
+
+\begin{verbatim}
+namespace assign_impl { bool valid(const type* T, var* y); }
+
+var* usr::assign(var* right)  // 仮想函数の上書き
+{
+  m_type = m_type->complete_type();
+  const type* T = m_type;
+  if ( !T->modifiable() ) {
+    // const 修飾されているのでエラーとなります.
+  }
+  var* y = right->rvalue();
+  y->m_type = y->m_type->complete_type();
+  T = assign_impl::valid(T,y);
+  if ( !T ) {
+    // 代入が定義されていないのでエラーとなります.
+  }
+  y = y->cast(T);
+  code.push_back(new assign3ac(this,y)); // this := y を生成
+  if ( !y->isconstant() )
+    return y;
+
+  // 静的な変数に対する初期化指定子に代入演算子が指定されたとき,
+  // 定数ではないということを示すためだけのものです. この余分な
+  // 3 番地コードは最適化で削除されることになります.
+  var* x = new var(T);
+  if ( block* b = dynamic_cast<block*>(scope::current) )
+    b->m_vars.push_back(x);
+  code.push_back(new assign3ac(x,y));
+  return x;
+}
+\end{verbatim}
+代入が定義されているかどうかを判定する {\tt{assign\_impl::valid}} につい
+ては後述するとします.
+
+左辺値を持つものであっても配列や函数を左オペランドに指定することはでき
+ないので {\tt{generated::assign}} は以下のようになります.
+\begin{verbatim}
+var* generated::assign(var* right)  // 仮想函数の上書き
+{
+  // 配列や函数なのでエラーとなります.
+}
+\end{verbatim}
+図 \ref{expr013} で {\tt{ref}} から派生したクラスも左辺値を持ちます.
+この場合はこれらすべてのクラスで仮想函数の上書きをします.
+\begin{verbatim}
+var* ref::assign(var* right)  // 仮想函数の上書き
+{
+  // * this := right に相当するコードを生成します.
+}
+
+var* refaddr:assign(var* right)  // 仮想函数の上書き
+{
+  // ref[offset] := right に相当するコードを生成します.
+}
+
+var* refbit::assign(var* right)  // 仮想函数の上書き
+{
+  // ビットフィールドに対する代入なので以下のような
+  // 3 番地コードを出力することになります.
+  //
+  // t0 := ref[offset]
+  // t0 := t0 & mask
+  // t1 := right << pos
+  // t0 := t0 | t1
+  // ref[offset] := t0
+}
+
+var* refimm::assign(var* right)  // 仮想函数の上書き
+{
+  return ref::assign(right);  // this := 定数 を出力します.
+}
+
+var* refsomewhere::assign(var* right)  // 仮想函数の上書き
+{
+  // ref[offset] := right に相当するコードを生成します.
+}
+\end{verbatim}
+
+代入が定義されているかどうかを判定する {\tt{assign\_impl::valid}} は
+以下のが成立する場合に, 代入演算子の結果の型を返すようにします. 
+\begin{itemize}
+\item 両方が算術型である.
+\item 互いが {\em compatible} な構造体, 共用体型である.
+\item 互いが {\em compatible} なポインタである.
+\item 一方がポインタで他方が {\tt{void}} へのポインタである.
+\item 左オペランドがポインタで右オペランドが整定数 {\tt{0}} である.
+\end{itemize}
+
+\section{\tt{expression}}
+
+カンマ演算子は第 2 オペランドが結果の型となります.
+
+\section{\tt{constant-expression}}
+参考文献 \cite{ISO} の文法で
+{\tt{constant-expression}} が現れるのは
+以下の部分です.
+\begin{itemize}
+\item ビットフィールドにおけるビット幅指定
+\item 列挙指定子のメンバにおける値
+\item {\tt{case}} の式
+\item 添字 {\tt{designator}} 指定
+\end{itemize}
+ここでは {\tt{constant-expression}} に対する式の評価でフロントエンドが
+何をするべきかを考えてみましょう.
+
+これまで様々な式に対してどのように評価するか, どのように 3 番地コードを
+生成するかを考えてきました. 定数に対しては
+可能な限り 3 番地コードを生成することなく実行時の評価を行なうように
+してきました. 例えば,
+\begin{verbatim}
+void f(void)
+{
+  struct S {
+    ...
+    int a : (10 + 20) / 3 - 5;  /* この場合, 評価の方法は通常の
+                                   式と変わりません */
+  };
+}
+\end{verbatim}
+しかし今回の実装では 3 番地コード {\tt{x := \&y}} を認め,
+すべての 3 番地コードのオペランドに図 \ref{expr013} にお
+ける {\tt{addrof}} を認めないとしています(質問 \ref{front_back003} も参
+照して下さい). このため変数のアドレスが式で参照された
+場合には {\tt{constant-expression}} を処理しているかどうかを知る
+フラグに相当するものが必要になってしまいました. 例えば \ref{expr019} での
+コード生成でそれを参照しています.
+
+\begin{verbatim}
+struct const_expr : expr {
+  expr* m_expr;
+  static bool flag; // constant-expression はネストしないのでフラグで十
+	            // 分です.
+  ...
+  var* eval()
+  {
+    struct x {
+       x(){ flag = true; }
+      ~x(){ flag = false; }
+    } x;
+    return m_expr->eval();
+  }
+};
+\end{verbatim}
+改めて, {\tt{refaddr::address}} は {\tt{const\_expr::flag}} を参
+照して以下のように
+書くことができます.
+\begin{verbatim}
+var* refaddr::address()
+{
+  ...
+  block* b = dynamic_cast<block*>(scope::current);
+  if ( b && !const_expr::flag ) {
+    // この場合は 3 番地コード x:= &y を生成します.
+    ...
+  }
+  else
+    return new addrof(...);  // constant-expression 処理中は
+                             // 3 番地コードを生成しません.
+}
+\end{verbatim}
+これにより, 以下のような例に対しても正しくフロントエンドが処理
+できることになります.
+\begin{verbatim}
+int a[10];
+
+void g(void)
+{
+  struct S {
+    ...
+    int b : &a[10] - &a[0];  /* 3 番地コードを出力せず b の
+                                ビット幅を正しく決めます. */
+  };
+}
+\end{verbatim}
+文法で {\tt{constant-expression}} が現れる部分以外に
+静的な変数の初期値指定子を処理する前に {\tt{const\_expr::flag}} が
+セットされなくてはなりません. これも以下のように
+変数のアドレスを参照しうるからです.
+\begin{verbatim}
+void h(void)
+{
+  static int a[10];
+  staitc int b = &a[10] - &a[0];
+  static int* p = &a[0];
+  static int (*pa)[10] = &a;
+  ...
+}
+\end{verbatim}

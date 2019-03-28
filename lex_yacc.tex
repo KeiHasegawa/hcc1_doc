@@ -1,0 +1,635 @@
+\label{lex_yacc000}
+\index{しくかいせき@字句解析}
+\index{こうふんかいせき@構文解析}
+\ref{front_back000} 章で述べたようにユーザが
+記述したプログラムを 3 番地コードと記号表に変換するのが
+フロントエンドの役割となります. ここではその前の段階として
+字句解析と構文解析について述べます.
+
+参考文献 \cite{doragon} には字句解析, 構文解析の手法が詳しく解説されてい
+ます. その最も開発コストの安い手法, すなわち,
+{\tt{lex}}\index{lex@lex},  {\tt{yacc}}\index{yacc@yacc} を使用する
+手法を使用してみることにしてみます.
+
+参考文献 \cite{ISO} には C 言語の文法が
+ {\tt{yacc}}\index{yacc@yacc} に
+ほぼそのまま入力可能な形書かれているので, それを使用します. また字句について
+も参考文献 \cite{ISO} に詳細が書かれています.
+こちらはそのまま {\tt{lex}}\index{lex@lex} に入力できる形ではないですが, 形を
+変えて使用します. 他にも参考文献 \cite{KR}, \cite{SGS} に同様の
+記述があります.
+\begin{htmlonly}
+\ref{grammer000} には ISO 規格の C 言語の
+字句と C 言語の構文とを {\tt{lex}}, {\tt{yacc}} とで
+記述したものがあります.
+\end{htmlonly}
+
+\section{{\tt{yacc}} による構文解析ルーチン}
+
+\label{lex_yacc003}
+文法を {\tt{yacc}} で記述したときに {\tt{if else}} によるシフト還元衝突のみが
+{\tt{yacc}} により報告されるでしょう. この衝突は「必ずシフトする」というよう
+に {\tt{yacc}} が解釈するために問題は起こらないことになります.
+
+上向き構文解析の過程では構文木\index{こうふんほく@構文木}を作成す
+ることだけにします.
+例えば以下のように {\tt{additive-expression}} に対して構文木を作成してい
+ます.
+
+\begin{verbatim}
+/* yacc による記述 */
+%type<expr> multiplicative_expression additive_expression
+...
+additive_expression
+  : multiplicative_expression
+  | additive_expression '+' multiplicative_expression
+    { $$ = new bin_expr('+',$1,$3); }
+  | additive_expression '-' multiplicative_expression
+    { $$ = new bin_expr('-',$1,$3); }
+  ;
+
+// 式を表現するノード
+class expr {
+  ...
+  // 3 番地コード生成が必要なときに使用するインターフェース
+  virtual var* eval() = 0;
+};
+
+// 2 項演算を表現するノード
+class bin_expr : public expr {
+  ...
+  bin_expr(int op, expr* left, expr* right);
+  var* eval();
+};
+\end{verbatim}
+
+\begin{QandA}
+一般に, 文法 A $\rightarrow$ B $|$ C D に対して, 以下のように
+構造体 Sa, Sb, Sc, Sd を定義することで機械的に構文解析木を,
+作成することはできるでしょうか.
+
+\begin{verbatim}
+struct Sb;
+struct Sc;
+struct Sd;
+struct Sa {
+  Sb* m_Sb;
+  Sc* m_Sc;
+  Sd* m_Sd;
+  Sa(Sb* b) : m_Sb(b), m_Sc(0), m_Sd(0) {}
+  Sa(Sc* c, Sd* d) : m_Sm(0), m_Sc(c), m_Sd(d) {}
+};
+
+A : B   { $$ = new Sa($1); }
+  | C D { $$ = new Sa($1,$2); }
+  ;
+\end{verbatim}
+
+回答 : できるでしょう. しかし注意が必要です. C 言語の式のように
+再帰的に文法が定義されている場合, 例えば, a + b を表現する構文木は
+たくさんの空のノードが作成されてしまうことになります. これらは
+コンパイラ自身のヒープを大量に使用することになり, 結果, コンパイラ
+自身が高速に動作しなくなってしまいます.
+\end{QandA}
+
+\begin{QandA}
+\label{lex_yacc001}
+上向き構文解析の過程で式や文の構文解析木を作成せず, いきなり 3 番地コードを
+生成することはできるでしょうか.
+
+回答 : 可能です. この場合注意しなくてはならないことは, {\tt{yacc}}
+によって出力された還元コードにより, 3 番地コードが必ず生成されて
+しまうということです.
+
+例えば {\tt{for}} 文について, 構文解析木を作成した場合
+は以下のようになります.
+
+\begin{verbatim}
+/* yacc による記述 */
+for_statement
+  : ...
+  | FOR '(' expression ';' expression ';' expression ')' statement
+    { $$ = new for_stmt($3,$5,$7,$9); }
+  ;
+
+// for 文のコード生成
+void for_stmt::gen()
+{
+  $3 のコードを生成
+  label("begin");
+  $5 のコードを生成
+  if $5 の結果 == 0 goto "end" を生成
+  $9 のコードを生成
+  $7 のコードを生成
+  goto "begin" を生成
+  label("end);
+}
+\end{verbatim}
+
+これに対して, 式, 文を還元したときに直ちにコード生成した場合は
+生成したコードを一旦移動する必要がでてきます. 上の例で言えば,
+{\tt{\$7}} と {\tt{\$9}} のコードは入れ替えられなくてはなりません.
+\end{QandA}
+
+\section{{\tt{lex}} による字句解析}
+\label{lex_yacc004}
+\ref{lex_yacc003} で述べたように, C 言語の構文解析は {\tt{yacc}}
+を使用することでそれほど難しくなくできるでしょう. しかし, この
+ためには字句解析ルーチンが正しく動作しなくてはなりません.
+
+字句解析で注意する点は, 正規表現
+\begin{verbatim}
+{nondigit}({nondigit}|{digit})*
+\end{verbatim}
+にマッチする字句に対して, それがどの字句かを判定することです.
+このためには, 少なくとも, 現在の記号表を検索しながら
+字句を決定する必要があります. 例えば,
+
+\begin{verbatim}
+typedef int A;    /* 記号表に A が追加されます. */
+A a;              /* A は identifier ではなく
+                     typedef-name になります. */
+
+void f(void)
+{
+  A A = A;        /* 1 つ目の A は typedef-name になります. */
+                  /* 2 つ目の A は typedef-name ではなく
+                     identifier になります. この場合, 記号表の
+                     検索は行なわれません. */
+                  /* 3 つ目の A は記号表から検索された
+                     結果 identifier になります. */
+  ...
+}
+\end{verbatim}
+このためには宣言の最小単位が還元されるとき
+記号表へエントリの追加が行なわれなくてはなりません.
+
+\begin{verbatim}
+declaration
+  : declaration_specifiers init_declarator_list ';'
+    { /* このタイミングは間違い. */ }
+  | ...
+  ;
+...
+init_declarator
+  : declarator     { /* このタイミングで追加する */ }
+  | declarator '=' { /* このタイミングで追加する */ } initializer
+  ;
+...
+\end{verbatim}
+字句を決定する際に記号表の検索が行なわれるので, {\tt{identifier}} や
+{\tt{typedef-name}} に対す
+る字句の属性は記号表のエントリへのポインタとしておきます. これによって構
+文解析ルーチンのアクション部分で改めて検索する必要がなくなることになります.
+字句の属性に
+ついては参考文献 \cite{doragon} 「3 字句解析」を参照してください.
+
+\begin{QandA}
+参考文献 \cite{doragon} では字句の値が定数の場合に定数の値を
+字句の属性とするように記述されています. しかし
+図 \ref{front_back007} では整定数 {\tt{0}} や文字列定数
+{\tt{``hello world\verb|\|n''}} を記 
+号表に入れています. その必要はあるのでしょうか. 定数に対して字句の属性はど
+のようにすべきなのでしょうか.
+
+回答 : C 言語の定数には型という概念があります. 詳しくは参考文献
+\cite{ISO} を参照して下さい. そこでは文字列定数の記憶クラスが
+ {\tt{static}} であることも述べられています.
+すべての定数に名前と型があるので記号表に入れるのは自然なことだと考えまし
+た. 字句の属性は {\tt{identifier}} や  {\tt{typedef-name}} と同様に
+記号表のエントリへのポインタとするのがよいでしょう.
+\end{QandA}
+
+\subsection{字句解析ルーチンと記号表}
+\label{lex_yacc007}
+\ref{lex_yacc004} では正規表現
+\begin{verbatim}
+{nondigit}({nondigit}|{digit})*
+\end{verbatim}
+にマッチする字句に対して, 場合によって記号表の検索が必要であることを
+述べました. 参考文献 \cite{ISO} の文法をそのまま採用するのであれば
+{\tt{identifier}}, {\tt{typedef-name}} のみがこの正規表現にマッチしたときに
+字句解析ルーチンから返される値になります.
+しかし記号表には変数名, typedef 名の他に, 構造体, 共用体, 列挙のタグ名と
+言われるものも記号表に入ることになります. 
+これに対する終端記号を {\tt{tag-name}} として表わすことにします.
+これにより参考文献 \cite{ISO} の文法は以下のように書き替えることになります.
+
+\begin{verbatim}
+struct-or-union-specifier :
+  struct-or-union identifier { struct_declaration_list }
+  struct-or-union { struct-declaration-list }
+  struct-or-union identifier
+  struct-or-union tag-name              # この規則を追加します
+...
+enum-specifier:
+  enum identifier { enumerator-list }
+  enum            { enumerator-list }
+  enum identifier { enumerator-list , }
+  enum            { enumerator-list , }
+  enum identifier
+  enum tag-name                         # この規則を追加します
+\end{verbatim}
+{\tt struct-or-union-specifier } の規則において,
+1 つ目と 2 つ目は完全型構造体, 共用体の宣言,
+3 つ目は不完全型構造体, 共用体の宣言,
+4 つ目はすでに宣言されている構造体, 共用体の参照となります.
+以下の例では, 必要な場合のみに記号表の検索をしなくてはならない
+ことを示しています.
+\begin{verbatim}
+typedef int T;  /* 記号表の検索はせず T は identifier とします. */
+
+T t;  /* T を記号表から検索し typedef-name であるとします. */
+
+struct T {  /* 記号表の検索はせず T は identifier とします. */
+  ...
+};
+
+void f(void)
+{
+  struct T t; /* 記号表を検索し, T は tag-name であるとします. */
+  struct T {  /* 記号表を検索せず T は identifier となります. */ 
+    ...
+  };
+}
+\end{verbatim}
+そこで
+正規表現 {\tt \{nondigit\}(\{nondigit\}|\{digit\})*} にマッチしたとき
+記号表の検索をするのか, 検索をせずに {\tt{identifier}}
+を字句の値とすべきなのかを考えてみましょう.
+
+\newtheorem{Method}{方法}[chapter]
+
+\begin{Method}
+\label{lex_yacc002}
+直前の字句を記憶しておき, それから判断します.
+
+\begin{verbatim}
+int a;          /* 直前の字句が int なので a に対して
+                   記号表を検索せず identifier を返します. */
+typedef int A;  /* 直前の字句が int なので A に対して
+                   記号表を検索せず identifier を返します. */
+A aa;           /* A の直前の字句は ; なので記号表を検索し
+                   typedef-name を返す. */
+                /* aa の直前の字句は typedef-name なので
+                   記号表を検索せず identifier を返します. */
+\end{verbatim}
+直前の字句が
+\begin{verbatim}
+void char int float double short long signed unsigned
+typdef-name tag-name . -> goto
+\end{verbatim}
+であれば記号表を検索せず {\tt{identifier}}
+を字句の値とすることになります.
+
+\end{Method}
+
+方法 \ref{lex_yacc002} には問題があり, 直前の字句のみから検索すべきか
+そうでないかを決定できない場合があります.
+
+\begin{verbatim}
+int const a;  /* 直前の字句が const の場合,
+                 記号表を検索しないとすると, */
+typedef int A;
+const A b;    /* この場合がうまくいきません.
+                 A に対しては検索するのが正しいです. */
+\end{verbatim}
+ここでの {\tt{const}} と同様の問題が起こるものに
+\begin{verbatim}
+volatile restrict typedef extern static register auto inline
+\end{verbatim}
+があります.
+
+この他に {\tt{tag-name}} と解釈すべき場合に問題が起こってしまいます.
+
+\begin{verbatim}
+struct S {  /* 直前の字句が struct なので検索しないとすると */
+  ...
+};
+
+struct S s; /* この場合 S を検索し, s の型を決めたいので困ります. */
+\end{verbatim}
+
+
+\begin{Method}
+\label{lex_yacc005}
+方法 \ref{lex_yacc002} と同様に
+直前の字句を記憶しておきます. さらに
+字句解析ルーチンで返した字句のうち
+\begin{verbatim}
+void char int float double short long signed unsigned
+typdef-name tag-name
+const volatile restrict
+typedef extern static register auto inline
+\end{verbatim}
+をグローバルなコンテナ変数
+\begin{verbatim}
+vector<int> lexed_spec;
+\end{verbatim}
+に保存しておき
+\begin{verbatim}
+declaration
+struct-declaration
+parameter-declaration
+\end{verbatim}
+が還元されたときに {\tt{lexed\_spec}} をクリアします. 
+
+記号表を検索するかどうかは, 以下の函数によって判定します.
+\begin{verbatim}
+bool should_lookup()
+{
+  if ( prev == STRUCT || prev == UNION || prev == ENUM )
+    return peek() != '{';
+
+  if ( lexed_spec.empty() )
+    return prev != '.' && prev != ARROW && prev != GOTO;
+
+  return find_if(lexed_spec.begin(),lexed_spec.end(),enough)
+    == lexed_spec.end();
+}
+
+bool enough(int n)
+{
+  n が以下のものならば true 
+  void char int float double short long signed unsigned
+  typdef-name tag-name
+
+  そうでないならば, すなわち以下のものならば false
+  const volatile restrict
+  typedef extern static register auto inline
+}
+\end{verbatim}
+\end{Method}
+
+方法 \ref{lex_yacc005} には次のような問題があります.
+
+\begin{verbatim}
+int typedef A;      /* A : lexed_spec に int と typedef
+                       があるので検索しません. */
+
+A a[sizeof(const A)], b;
+                    /* 1 つ目の A : lexed_spec が空で直前
+                       の字句が ; なので検索します. */
+                    /* a : lexed_spec に typedef-name があ
+                       るので検索しません. */
+                    /* 2 つ目の A : lexed_spec に typedef-name
+                       と const があるので検索しないこと
+                       になってしまいます. */
+                    /* b : lexed_spec に typedef-name と
+                       const があるので検索しません. これは
+                       よいのですが, b の型を const A と
+                       してしまうことになります. */
+
+void f(A a);        /* f : lexed_spec に void があるので検索
+                       しません. */
+                    /* A : lexed_spec に void があるので検索
+                       しないことになってしまいます. */
+                    /* a : lexed_spec に void があるので検索
+                       しません. これはよいのですが, a の型を
+                       void としてしまうことになります. */
+\end{verbatim}
+
+\begin{Method}
+\label{lex_yacc006}
+方法 \ref{lex_yacc002} と同様に直前の字句を記憶しておきます.
+方法 \ref{lex_yacc005} の {\tt{lexed\_spec}} も記憶しておきます.
+さらに以下の情報を記憶しておきます.
+\begin{verbatim}
+struct spec {
+  type* m_type; // 型を記録
+  int m_other;  // 記憶クラス, 函数指定子を記録
+};
+stack<spec*> spec_stack;
+\end{verbatim}
+{\tt{lexed\_spec}} をクリアする前に, {\tt{spec\_stack}} に
+{\tt{lexed\_spec}} と等価な {\tt{spec}} を作成しプッシュしておきます.
+さらに 0 をプッシュします.
+{\tt{lexed\_spec}} のクリア, プッシュ, ポップのタイミングは以下のような
+場合になります.
+
+\begin{verbatim}
+typedef short int A[3];
+static int n =
+/* static, int をプッシュ. lexed_spec をクリア. 0 をプッシュ. */
+sizeof(A), /* A は検索される. ポップする */
+m    /* spec_stack の top を参照する */
+;    /* ポップする. */
+
+struct S {
+  unsigned int a :
+  /* ここで unsigned int をプッシュ. lexed_spec をクリア.
+     0 をプッシュ. */
+  sizeof(A), /* A は検索される. ポップする. */
+  b[5]  /* spec_stack の top を参照する. */
+  ;     /* ポップする. */
+};
+
+int b[  /* ここで int をプッシュ. lexed_spec をクリア.
+           0 をプッシュ. */
+     sizeof(A)  /* A は検索される. */
+     ]  /* ポップする */
+     , c /* spec_stack の top を参照する. */
+     ;     /* ポップする. */
+
+inline void f(a,b,c)
+  /* ここで inline, void () をプッシュ. lexed_spec をクリア. 0 をプッシュ. */
+  int a;    /* lexed_spec に int あるので a は検索されない */
+  double b; /* lexed_spec に double があるので b は検索されない */
+  char* c;  /* spec_stack のトップが 0 でないので c は
+               検索されない */
+  /* ここでポップ */
+{
+  ...
+}
+
+static void g(
+/* ここで static, void をプッシュ. lexed_spec をクリア.
+   0 をプッシュ. */
+  FILE  /* spec_stack のトップが 0 なので検索される. */
+  *
+  fp    /* spec_stack のトップが FILE* なので fp は検索されない  */
+  /* ここでポップ */
+);
+\end{verbatim}
+
+改めて, 記号表を検索するかどうかを判定する函数は以下のようになります.
+\begin{verbatim}
+bool should_lookup()
+{
+  if ( prev == STRUCT || prev == UNION || prev == ENUM )
+    return peek() != '{';
+
+  if ( !lexed_spec.empty() ) {
+    return find_if(lexed_spec.begin(),lexed_spec.end(),enough)
+      == lexed_spec.end();
+  }
+
+  if ( !spec_stack.empty() )
+    return !spec_stack.top();
+
+  return prev != '.' && prev != ARROW && prev != GOTO;
+}
+\end{verbatim}
+\end{Method}
+
+方法 \ref{lex_yacc006} では以下のような
+{\tt{abstract-declarator}} を正しく処理することが
+できません.
+\begin{verbatim}
+typedef int T;
+T f(T (T));
+\end{verbatim}
+ここで {\tt{f}} は
+\begin{verbatim}
+T f(T);
+\end{verbatim}
+ではなく
+\begin{verbatim}
+T f(T (*)(T));
+\end{verbatim}
+と等価になるように解釈されるのが正しいのです. 初めの {\tt{f}} の宣言において
+3 つ目の {\tt{T}} は記号表を検索して {\tt{typedef-name}} とするのが
+正しいことになります. ここで, 宣言
+\begin{verbatim}
+T f(T (a));
+\end{verbatim}
+が
+\begin{verbatim}
+T f(T);
+\end{verbatim}
+と等価になるように解釈されることが正しいことにも注意して下さい.
+またさらに
+\begin{verbatim}
+T (T);  // パラメータスコープの外側の T (T)
+\end{verbatim}
+は 
+\begin{verbatim}
+int T;
+\end{verbatim}
+と等価であり,
+\begin{verbatim}
+T f(T (T));  // パラメータスコープの内側の T (T)
+\end{verbatim}
+は
+\begin{verbatim}
+int f(int (*pf)(int));
+\end{verbatim}
+と等価であることにも注意して下さい.
+
+
+方法 \ref{lex_yacc006} での反例は
+記号表を検索するべきか, 検索しなくてもよいかを
+決めることができないということを表わしています. しかし,
+直前の字句が '(' で, パラメータスコープを解析しているので
+あれば, 検索し, それが
+{\tt{typedef-name}} であれば, {\tt{typedef-name}} を
+字句の値にすることができます. すなわち,
+
+\begin{verbatim}
+/* lex のソース */
+{nondigit}({nondigit}|{digit})*   { return judge(yytext); }
+
+// name の字句が identifier, typedef-name, tag-name かを決めます.
+int judge(string name)
+{
+  if ( prev == STRUCT || prev == UNION || prev == ENUM ) {
+    if ( peek() == '{'; )
+      return IDENTIFIER;
+    if ( int r = lookup(name) )  // タグ名のみを検索します
+      return r;
+    return IDENTIFIER;
+  }
+
+  if ( !lexed_spec.empty() ) {
+    p = find_if(lexed_spec.begin(),lexed_spec.end(),enough);
+    if ( p != lexed_spec.end() )
+      return IDENTIFIER;
+    if ( int r = lookup(name) )
+      return r;
+    return IDENTIFIER; // 見つからなくてもエラーではありません.
+  }
+
+  if ( !spec_stack.empty() ) {
+    if ( prev == '(' && パラメータスコープを解析中 ) {
+      int r = lookup(name);
+      if ( r && r == TYPEDEF_NAME )
+        return TYPEDEF_NAME;
+      return IDENTIFIER; // 見つからなくてもエラーではありません.
+    }
+
+    if ( spec_stack.top() )
+      return IDENTIFIER;
+
+    if ( int r = lookup(name) )
+      return r;   
+
+    return IDENTIFIER; // エラーかもしれませんが,
+                       // ここでは判定できません.
+  }
+
+  if ( prev == '.' || prev == ARROW || prev == GOTO )
+    return IDENTIFIER;
+
+  if ( int r = lookup(name) )
+    return r;
+
+  return IDENTIFIER; // エラーかもしれませんが,
+                     // ここでは判定できません.
+}
+\end{verbatim}
+
+記号表を検索して見つからなかったときに直ちにエラーにすることができ
+ません. 
+\begin{verbatim}
+main()  /* main の戻り値が明示されていません. lexed_spec は空で
+           spec_stack も空です. 直前の字句もないので記号表を検索し
+           ますが, 見つかりません. */
+{
+  printf("hello world\n");
+  /* 宣言されていない函数の呼び出しです.
+     lexed_spec は空で, spec_stack も
+     空です. 直前の字句は { なので記号表を
+     検索しますが見つかりません. */
+
+label:   /* 記号表を検索しますが見つかりません. */
+  ;
+
+  int f(a,b,c);  /* a, b, c に対して記号表を検索しますが
+                    見つかりません. */
+}
+\end{verbatim}
+場合によって
+記号表にない, すなわち, 宣言されていない変数の参照は
+式に対する 3 番地コードの生成で正しく処理されなくては
+ならないということになります.
+
+\begin{verbatim}
+int f();
+
+int g(int a)
+{
+  // ...
+label:      // label は検索されるべき?
+  f();
+
+  // ...
+  a ? --a : g(++a);   // ':' はここにも出現するし
+
+  struct S {
+    int a : sizeof f();  // ':' はここにも出現する
+
+    // ...
+  };
+
+f:   // f は検索されるべき?
+  g(f());
+
+  // ...
+}
+\end{verbatim}
+最後に ':' の直前の文字列が検索されるべきかされないべきかを考えてみましょう。
+これまでに既にあるルールでは 3 項演算子では検索され,
+ビットフィールドでは検索されないことになりますが, ラベル文のラベルは
+可能なら検索せずに済ませたいところです. しかしその判定が難しいのであれば
+検索しておくのが実装として簡単かもしれません. ラベル文のコード生成で
+ラベルが記号表のエントリかそうでないかによって対処を変えることができるからです.

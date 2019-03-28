@@ -1,0 +1,453 @@
+\label{type001}
+\ref{symtab002} 章では記号表のエントリに
+プログラムに現われる変数を入れることを述べました.
+変数の属性の 1 つとして型があります.
+\ref{_3ac001} 章では各 3 番地コードのオペランド
+の型が意味をもつようにフロントエンドがコード生成する
+ことを述べました.
+
+この章では型をどのように表現するかについて考えてみます.
+参考文献 \cite{doragon} 「6 型検査」では型について「型式」
+\index{かたしき@型式}という概念を
+用いて扱えばよいことが述べられています.
+例えば
+\begin{verbatim}
+void (*signal(int, void (*)(int)))(int);
+\end{verbatim}
+に対する型式は図 \ref{type006} のようになります.
+
+\hspace{0.5cm}
+\begin{figure}[htbp]
+\begin{center}
+\begin{latexonly}
+\includegraphics[width=0.5\linewidth,height=0.5\linewidth]{type_expr.eps}
+\end{latexonly}
+\begin{htmlonly}
+\includegraphics{type_expr.png}
+\end{htmlonly}
+\caption{signal の型式の表現}
+\label{type006}
+\end{center}
+\end{figure}
+
+この例から, 型は木構造で表現できることが分かります.
+
+参考文献 \cite{doragon} 「6 型検査」では型式を通常の木構造ではなく
+{\em dag} ( direct acyclic graph)
+\index{dag@dag} で表現すればよいことが述べられています.
+この理由は型の等価性を判定しやすいからです. C 言語のフロントエンドでは
+型 $T_1$ が型 $T_2$ と {\it compatible} であるかどうかを
+判定する必要があるので, ここでも {\em dag} による型表現を採用
+します. 図 \ref{type000} に
+宣言 {\tt{signal}} の型に対する {\em dag} を示します.
+\begin{figure}[htbp]
+\begin{center}
+\begin{latexonly}
+\includegraphics[width=0.5\linewidth,height=0.5\linewidth]{dag.eps}
+\end{latexonly}
+\begin{htmlonly}
+\includegraphics[width=0.3\linewidth,height=0.3\linewidth]{dag.png}
+\end{htmlonly} 
+\caption{{\tt{signal}} の型の {\em dag} 表現}
+\label{type000}
+\end{center}
+\end{figure}
+
+C 言語におけるさまざまな型を {\it compatibility} を判定できるように
+以下の基底クラスから派生させることにします.
+\begin{verbatim}
+class type {
+public:
+  ...
+  virtual bool compatible(const type* that) const
+  {
+    return this == that;
+  }
+  ...
+};
+\end{verbatim}
+\index{compatible@compatible}
+\index{type@type}
+ここで型の等価性はアドレス比較のみで判定できるようになっていること
+に注意して下さい. {\tt{type}} には他にもさまざまな
+インターフェースを表現する仮想函数が必要になりますが, この章では
+{\it compatility} についてのみ考えることにします.
+
+\section{基本型}
+
+\index{きほんかた@基本型}
+C 言語の基本型との内部表現を以下に示します.
+
+\begin{latexonly}
+\vspace{0.5cm}
+\end{latexonly}
+
+\begin{tabular}{|l|l|} \hline
+C プログラムでの表記 & フロントエンド内部表現 \\ \hline
+{\tt{void}} & {\tt{void\_type}} \\ \hline
+{\tt{char}} & {\tt{char\_type}} \\  \hline
+{\tt{signed char}} & {\tt{schar\_type}} \\  \hline
+{\tt{unsigned char}} & {\tt{uchar\_type}} \\  \hline
+{\tt{short int}} & {\tt{short\_type}} \\  \hline
+{\tt{unsigned short int}} & {\tt{ushort\_type}} \\  \hline
+{\tt{int}} & {\tt{int\_type}} \\ \hline
+{\tt{unsigned int}} & {\tt{uint\_type}} \\  \hline
+{\tt{long int}} & {\tt{long\_type}} \\ \hline
+{\tt{unsigned long int}} & {\tt{ulong\_type}} \\ \hline
+{\tt{long long int}} & {\tt{long\_long\_type}} \\ \hline
+{\tt{unsigned long long int}} & {\tt{ulong\_long\_type}} \\ \hline
+{\tt{float}} & {\tt{float\_type}} \\ \hline
+{\tt{double}} & {\tt{double\_type}} \\ \hline
+{\tt{long double}} & {\tt{long\_double\_type}} \\ \hline
+\end{tabular}
+
+\begin{latexonly}
+\vspace{0.5cm}
+\end{latexonly}
+
+例えば, {\tt{int\_type}} は以下のようなクラスとして表現できます.
+\begin{verbatim}
+class int_type : public type {
+  static int_type obj;  // 唯一のオブジェクト
+  int_type(){}          // private コンストラクタ
+public:
+  static const int_type* create(){ return &obj; }
+};
+\end{verbatim}
+
+\section{ポインタ型}
+\label{type003}
+\index{ほいんたかた@ポインタ型}
+ポインタの指す型を保持すればよいので以下のように書くことができます。
+\begin{verbatim}
+class pointer_type : public type {
+  const type* m_T;  // ポインタの指す型を保持します
+  pointer_type(const type* T) : m_T(T) {}
+  typedef map<const type*, const pointer_type*> table_t;
+  static table_t table;
+public:
+  static const pointer_type* create(const type* T)
+  {
+    table_t::const_iterator p = table.find(T);
+    if (p != table.end())
+      return p->second;  // すでに作られているのでそれを返します
+    else
+      return table[T] = new pointer_type(T);
+  }
+  bool compatible(const type* T) const
+  {
+    typedef const pointer_type PT;
+    PT* that = dyanmic_cast<PT*>(T);
+    if (!that)
+      return false;
+    return this->m_T->compatible(that->m_T);
+  }
+  ...
+};
+\end{verbatim}
+\index{pointer_type@pointer\_type}
+
+\section{型修飾子}
+\label{type002}
+\index{かたしゅうしょくし@型修飾子}
+C 言語の型修飾子には {\tt{const}}, {\tt{volatile}}, {\tt{restrict}} が
+あります. 修飾する型を保持すればよいので, 例えば {\tt{const}}
+を表現するクラスは以下のようになります.
+
+\begin{verbatim}
+class const_type : public type {
+  const type* m_T;  // 修飾する型を保持します.
+  const_type(const type* T) : m_T(T) {}
+  static map<const type*, const const_type*> table;
+public:
+  // 戻り値が const cons_type* ではなく const type* にしてる
+  static const type* create(const type* T);
+
+  // pointer_type::compatible と同じ
+  bool compatible(const type* T) const;
+  ...
+};
+\end{verbatim}
+{\tt{pointer\_type::create}} と同じように
+\tt{const\_type::create} を実装したいところ
+ですが, 以下の宣言を見てみましょう.
+\begin{verbatim}
+typedef const int CI;     // const_type(int_type)
+typedef volatile int VI;  // volatile_type(int_type)
+volatile CI vci;  // volatile_type(const_type(int_type))
+const VI cvi; // const_type(volatile_type(int_type)) ではなく,
+              // volatile_type(const_type(int_type)) にしたい
+const CI cci;  // cosnst_type(const_type(int_type)) ではなく,
+               // CI と等価な型で表現
+\end{verbatim}
+この例から, \tt{const\_type::create} は少し工夫する必要があることがわかります.
+これと異なる実装, 例えば, \tt{const}, \tt{volatile}, \tt{restrict} を同一の
+クラスで表現するなど, であっても, 同じ型を表現するのに同じ型オブジェクトが使われる
+べきでしょう. もしそうしないのであれば, そもそも {\it dag} で型式を表現するということを
+見直す必要があります.
+
+\section{配列型}
+
+配列の要素の型と
+配列の次元を保持すればよいので以下のように書くことができます。
+
+\begin{verbatim}
+class array_type : public type {
+  const type* m_T;  // 要素の型を保持します.
+  int m_dim;        // 次元を保持します.
+  array_type(const type* T, int dim) : m_T(T), m_dim(dim) {}
+  ...
+public:
+  bool compatible(const type* T) const
+  {
+    typedef const array_type AT;
+    AT* that = dynamic_cast<AT*>(T);
+    if (!that)
+      return false;
+    if (!this->m_T->compatible(that->m_T))
+      return false;
+    if (this->m_dim && that->m_dim)
+      return this->m_dim == that->m_dim;
+    return true;  // 一方か両方が不完全型配列の場合
+  }
+  ...
+};
+\end{verbatim}
+\index{array_type@array\_type}
+\index{はいれつかた@配列型}
+次の宣言
+\begin{verbatim}
+int a[10];
+...
+extern int a[];
+\end{verbatim}
+について考えてみましょう. 1 つ目の宣言の \tt{a} の型は
+\tt{array\_type(int\_type, 10)} で表現され 2 つ目の宣言
+の \tt{a} の型は
+\tt{array\_type(int\_type, 0)} で表現されます. 2 つの型は等価ではない
+ですが, {\it compatible} なので, 2 つ目の宣言は合法となります.
+フロントエンドは 2 つ目の宣言に対して, 記号表に \tt{a} の型を
+\tt{array\_type(int\_type, 0)} ではなく
+\tt{array\_type(int\_type, 10)} として登録するでしょう.
+
+少し横道にそれますがそれますが, 配列は {\tt{const}} 等で修飾
+されない型です. 次の宣言
+\begin{verbatim}
+typedef int A[10][20];
+const A a;
+\end{verbatim}
+に対してフロントエンドは {\tt{a}} の型を図 \ref{type007} の
+表現する型式とするのが正しいです. 図 \ref{type008} は誤った型式
+となります. 
+\begin{figure}[htbp]
+\begin{center}
+\begin{latexonly}
+\includegraphics[width=0.4\linewidth,height=0.5\linewidth]{correct_array.eps}
+\end{latexonly}
+\begin{htmlonly}
+\includegraphics{correct_array.png}
+\end{htmlonly}
+\caption{正しい {\tt{a}} の型式}
+\label{type007}
+\end{center}
+\end{figure}
+\begin{figure}[htbp]
+\begin{center}
+\begin{latexonly}
+\includegraphics[width=0.4\linewidth,height=0.5\linewidth]{incorrect_array.eps}
+\end{latexonly}
+\begin{htmlonly}
+\includegraphics{incorrect_array.png}
+\end{htmlonly}
+\caption{誤った {\tt{a}} の型式}
+\label{type008}
+\end{center}
+\end{figure}
+
+\section{函数型}
+\index{かんすうかた@函数型}
+函数のパラメータと戻り値の型を以下のように表現します.
+\begin{verbatim}
+class func_type : public type {
+  const type* m_T;              // 戻り値の型
+  vector<const type*> m_param;  // パラメータの型
+  ...
+public:
+  bool compatible(const type*) const;
+}
+\end{verbatim}
+\index{func_type@func\_type}
+{\tt{func\_type}} のメンバ {\tt{compatible}} はこれまでの
+ものと比べ複雑になります. 
+
+\begin{verbatim}
+bool func_type::compatible(const type* T) const
+{
+  typedef const func_type FT;
+  FT* that = dynamic_cast<FT*>(T);
+  if (!that)
+    return false;  // 函数でない
+  if (!this->m_T->compatible(that->m_T))
+    return false;  // 戻り値の型が compatible でない.
+  if (this->m_param.size() != that->m_param.size()) {
+    // 古いスタイルの函数かもしれませんがここでは簡単に
+    // false を返します.
+    return false;
+  }
+  vector<const type*>& u = this->m_param;
+  vector<const type*>& v = that->m_param;
+  pair<IT,IT> p = mismatch(u.begin(),u.end(),v.begin(),::compatible);
+  return p == make_pair(u.end(),v.end());
+}
+\end{verbatim}
+
+\subsection{可変個引数を取る函数の型}
+\label{type004}
+\index{かへんこひきすう@可変個引数}
+\index{ellipsis_type@ellipsis\_type}
+
+C 言語では可変個引数の函数を宣言する
+ことができます. {\tt{ellipsis\_type}} はこの型
+を表現するために使用されます. 例えば標準ライブラリの
+\begin{verbatim}
+extern int printf(const char* fmt, ...);
+\end{verbatim}
+の型式は図 \ref{type009} のようになります.
+\begin{figure}[htbp]
+\begin{center}
+\begin{latexonly}
+\includegraphics[width=0.5\linewidth,height=0.5\linewidth]{ellipsis_type.eps}
+\end{latexonly}
+\begin{htmlonly}
+\includegraphics{ellipsis_type.png}
+\end{htmlonly}
+\caption{printf の型式の表現}
+\label{type009}
+\end{center}
+\end{figure}
+
+\section{タグ関連型}
+\label{type010}
+ここでは C 言語における構造体, 共用体, 列挙をどのように表現するか
+を考えてみます. これらとこれらの不完全型はタグが関連付けられています.
+例えば,
+\begin{verbatim}
+struct S { int m; } a;
+void f(void)
+{
+  struct S { int m; } b;
+  a = b; /* エラーです */
+}
+\end{verbatim}
+コンパイラはこれに対して, 互いに compatible でない構造体の代入が
+されているといった意味のエラーを出力することになります.
+この例から型にタグが関連付けられていることが分かります.
+
+\subsection{構造体型, 共用体型}
+\index{こうそうたいかた@構造体型}
+\index{きようたいかた@共用体型}
+\label{type005}
+構造体, 共用体型及びそれへのポインタは
+名前でオフセットと型を参照されるので,
+タグ, メンバの他にレイアウト情報を保持しておくようにします.
+\begin{verbatim}
+class record_type : public type {
+  tag* m_tag;  // タグを保持します.
+  vector<usr*> m_member;  // メンバを保持します.
+
+  // 構造体, 共用体のレイアウト情報を計算しておきます.
+  map<string, pair<int, const type*> > m_layout;
+  ...
+public:
+  bool compatible(const type* T) const
+  {
+    typedef const record_type RT;
+    RT* that = dynamic_cast<RT*>(T);
+    if (this == that)
+      return true;
+    typedef const const incomplete_tagged_type ITT;
+    ITT* itt = dynamic_cast<ITT*>(T);
+    if (!itt)
+      return false;
+    return m_tag == itt->get_tag();
+  }
+  ...
+};
+\end{verbatim}
+\index{record_type@record\_type}
+
+\subsection{列挙型}
+\index{れつきよかた@列挙型}
+
+構造体, 共用体とは異なり, 列挙のメンバは記号表に入れます.
+\begin{verbatim}
+class enum_type : public type {
+  tag* m_tag;
+  ...
+public:
+  // 判定のコードは record_type と同じになります
+  bool compatible(const type* T) const;
+  ...
+};
+\end{verbatim}
+\index{compatible@compatible}
+\index{tag@tag}
+
+\subsection{不完全タグ型}
+\index{ふかんせんかた@不完全型}
+
+C 言語では構造体, 共用体, 列挙の宣言をメンバを省略した形で書くことができ
+ます. しかし, 完全型の構造体, 共用体, 列挙の宣言を解釈するときにでさえ,
+これらの不完全タグ型が必要になります. 例えば,
+\begin{verbatim}
+struct tree {  /* このポイントで struct tree に対するタグを記号表
+                  に入れます. */
+
+  struct tree* left;  /* 記号表を検索し struct tree が不完全型構
+                         造体であることを判定します */
+  struct tree* right;
+  int v;
+}; /* このポイントで struct tree は完全型になります */
+
+enum E { /* このポイントで enum E に対するタグを記号表に入れます. */
+
+   a = sizeof(enum E), /* 記号表を検索し enum E が不完全型列挙で
+                          あることを判定します. その結果, これは
+                          エラーになります. */
+   b,
+};
+\end{verbatim}
+
+不完全タグ型は以下のクラスで表現することができます.
+\begin{verbatim}
+class incomplete_tagged_type : public type {
+  tag* m_tag;
+  ...
+public:
+  // 判定のコードは record_type と同じになります
+  bool compatible(const type* T) const;
+  ...
+};
+\end{verbatim}
+\index{incomplete_tagged_type@incomplete\_taged\_type}
+\index{tag@tag}
+
+\section{ビットフィールド}
+\index{ひつとふいると@ビットフィールド}
+型の {\it compatibility} を考えるとき, ビットフィールドに
+対して {\it compatibility} を考える必要はないでしょう.
+構造体, 共用体のメンバとしてビットフィールドが出現し,
+構造体, 共用体はタグによって {\it compatiblity} が
+判定できるからです. しかし, 構造体, 共用体のメンバ
+として保持するからには, それがビットフィールドであることを
+記憶しておく必要があります.
+
+\begin{verbatim}
+class bit_field_type : public type {
+  int m_bit;          // ビット数
+  const type* m_T;    // 修飾される整数型
+  ...
+};
+\end{verbatim}
+\index{bit_field_type@bit\_field\_type}
+\index{ひつとふいると@ビットフィールド}

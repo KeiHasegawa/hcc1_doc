@@ -1,0 +1,423 @@
+\label{_3ac001}
+参考文献 \cite{doragon} 「8 中間コード生成」 では
+どのような 3 番地コードが必要かが述べられています.
+ここでは C コンパイラで採用される 3 番地コードについて
+考えてみます.
+3 番地コードは以下のような構造体で表現できるでしょう.
+\index{さんはんちこうと@3 番地コード}
+\begin{verbatim}
+struct var;  // 変数. 記号表のエントリ.
+
+struct tac {
+  var* x;
+  var* y;
+  var* z;
+  tac(var* xx, var* yy, var* z) : x(xx), y(yy), z(zz) {}
+};
+\end{verbatim}
+例えば加算に対する 3 番地コードクラスは
+\begin{verbatim}
+struct add3ac : tac {
+  add3ac(var* x, var* y, var* z) : tac(x,y,z) {}
+};
+\end{verbatim}
+のように {\tt{tac}} の
+派生クラスとします.
+参考文献 \cite{doragon} 「8 中間コード生成」では
+浮動小数点加算と整数加算とを区別するために, 別な 3 番地コードを採用するよ
+うにしていますが, 3 番地コードの
+のメンバすなわち, オペランドの型から
+浮動小数点加算と整数加算とを区別することができるので,
+浮動小数点加算にも整数加算にも {\tt{add3ac}} が対応する 3 番地コードとなり
+ます. オペランドが意味のある型を持つように 3 番地コードを生成するのは
+フロントエンドの役割となります.
+
+フロントエンドでは, 文法記号 {\tt{function-definition}}
+の規則が還元されたとき 3 番地コードの列を生成するようにします.
+例えば,
+\begin{verbatim}
+extern int printf(const char*, ...);
+
+int f(void)
+{
+   int a = 1;
+   a = (a + 2) * 3;
+   return printf("a = %d\n",a);
+}
+\end{verbatim}
+に対しては以下のような 3 番地コードを生成します.
+\begin{verbatim}
+f:
+        a := 1
+        t0 := a + 2
+        t1 := t0 * 3
+        a := t1
+        t2 := &"a = %d\n"
+        param t2
+        param a
+        t3 := call printf
+        return t3
+\end{verbatim}
+
+\begin{QandA}
+{\tt{tac}}のメンバはどのように使用されますか.
+
+回答 : 最適化のフェーズでは ud-連鎖, du-連鎖を作成することが必要になりま
+ す. ud-連鎖, du-連鎖については参考文献 \cite{doragon} 「10 コード最適化」
+を参照して下さい.
+{\tt{x}} は定義を調べるのに, {\tt{y, z}} は使用を調べるのに使用
+されます.
+\end{QandA}
+
+\begin{QandA}
+{\tt{tac}} に対するインターフェースとして, ターゲットコードの生成に関す
+るメンバが必要だと思うのですが.
+
+回答 : フロントエンドにはターゲットコード生成に関するインターフェース
+は必要ではないことと, 実装においてフロントエンドとバックエンドが
+それぞれ独立にビルドできることが必要になるのでフロントエンドに
+そのインターフェースを追加しません.
+確かに, バックエンドでターゲットコードを
+生成するために, 以下のように
+ {\tt{tac}} の仮想函数を呼び出したくなるかもしれません.
+
+\begin{verbatim}
+struct tac {
+  ...
+  virtual void gen_target() const = 0;
+};
+
+void backend::tac2target(const vector<tac*>& code)
+{
+  // 3 番地コードを機械的にターゲットコードに変換します
+  for_each(code.begin(),code.end(),mem_fun(&tac::gen_target));
+}
+\end{verbatim}
+しかし, このような仮想函数がないとしてもバックエンドでは次のように
+テーブルを作成して, バックエンド開発者の望む 3 番地コードに関連付けられ
+た函数で処理することは可能です.
+\begin{verbatim}
+struct backend::table : map<string, void (*)(const tac*)> {
+  table()
+  {
+    (*this)[typeid(assign3ac).name()] = assign;
+    (*this)[typeid(add3ac).name()] = add;
+    (*this)[typeid(sub3ac).name()] = sub;
+    (*this)[typeid(mul3ac).name()] = mul;
+    ...
+  }
+};
+
+void backend::tac2target(const vector<tac*>& code)
+{
+  for_each(code.begin(),code.end(),gencode);
+}
+
+void backend::gencode(const tac* p)
+{
+  table[typeid(*p).name()](p);
+}
+
+void backend::assign(const tac* p)
+{
+  // assign::gen_target に相当する処理をここで行います
+}
+\end{verbatim}
+\end{QandA}
+
+\section{{\tt{x := y}}}
+
+以下は 3 番地コード {\tt{x := y}} を表現するクラスです.
+\begin{verbatim}
+struct assign3ac : tac {
+  assign3ac(var* x, var* y) : tac(x,y,0) {}
+};
+\end{verbatim}
+参照するオペランドの型にはスカラー型, 構造体型, 共用体型のいずれかで
+配列型ではないとします.
+これは C 言語で配列の代入が定義されていないからです.
+バックエンドでは {\tt{x}} の型によってどの型の代入かを判定します.
+{\tt{x := y}} が
+意味をもつようにすることはフロントエンドによって保証されること
+になります.
+
+\section{{\tt{x := y * z}}}
+
+乗算は C 言語において算術型についてのみ定義されているので {\tt{y}} や
+{\tt{z}} の型が算術型以外になることはありません.
+バックエンドでは, {\tt{x}} の型に
+よってどの型での乗算であるかを判定します.
+乗算が意味をもつようにすることはフロントエンドによって保証されること
+になります.
+
+\section{{\tt{x := y / z}}}
+
+除算についても乗算と同様, 
+バックエンドでは, {\tt{x}} の型に
+よってどの型での除算であるかを判定するします.
+除算が意味をもつようにすることはフロントエンドによって保証されること
+になります.
+
+\begin{QandA}
+{\tt{x := y}} おいて {\tt{x}} と {\tt{y}} の型が
+ {\it compatible}
+\index{compatible@compatible}
+であることは保証されるでしょうか. 同様に
+{\tt{x := y * z}} や {\tt{x := y / z}}  おいて
+{\tt{x}}, {\tt{y}}, {\tt{z}} の型が
+{\it compatible} であることは保証されるでしょうか.
+
+回答 : 必ずしも保証されません. コード最適化を考慮すると
+{\it compatible} でなくてもよいという条件が有効に
+なるからです.
+例えば,
+\begin{verbatim}
+long int f(unsigned int a, int b){ return a * b; }
+\end{verbatim}
+に対する 3 番地コードは以下のようになります.
+\begin{verbatim}
+f:
+    t0 := (unsigned int)b    # t0 の型は unsigned int
+    t1 := a * t0             # t1 の型は unsigned int
+    t2 := (long int)t1       # t2 の型は long int
+    return t2
+\end{verbatim}
+この 3 番地コードは乗算における算術変換と {\tt {return}} 文に
+おける変換を言語仕様通りに反映したものになっています.
+しかし, フロントエンドが {\tt{int}} から {\tt{unsigned int}} への
+変換が代入と等価であることと, 乗算において符号ありなしがコード
+生成に影響を与えないこととを利用して, 1 つ目の型変換コードを
+生成しないことができます. さらに, バックエンドが
+{\tt {int}} と {\tt {long int}} に対して同じサイズを
+与えるのならば, そして, それをフロントエンドが知ることができるのならば,
+3 つ目の型変換コードも生成しないことができます. 
+この場合の最適な 3 番地コードは
+\begin{verbatim}
+f:
+    t1 := a * b             # t1 の型は unsigned int
+    return t1
+\end{verbatim}
+となります. ここでもし {\tt{f}} が乗算ではなく除算の結果を返すのであれば
+同様の変換はできないことに注意して下さい. 一般に整数型の除算はそのサイズ
+だけでなく符号のありなしに依存するからです. しかし, 
+バックエンドが {\tt {int}} と {\tt {long int}} に対して同じサイズを
+与えるのならば, {\tt {int}} と {\tt {long int}} の除算は
+変換なしに行なうことができます.
+\end{QandA}
+
+\section{{\tt{x := y \% z}}}
+
+モジュロ演算は整数型についてのみ定義されています. 
+バックエンドでは, {\tt{x}} の型に
+よってどの型でのモジュロ演算であるかを判定するします.
+モジュロ演算が意味をもつようにすることはフロントエンドによって保証されること
+になります.
+
+\section{{\tt{x := y + z}}}
+
+加算については乗算で述べた制限の例外として
+ポインタ型と整数型との演算, 整数型とポインタ型との演算が定義されて
+います. この場合, 結果の型はポインタ型になります.
+演算が意味をもつようにすることはフロントエンドによって保証されること
+になります.
+
+\section{{\tt{x := y - z}}}
+
+減算については加算と同様, 乗算で述べた制限の例外として
+ポインタ型と整数型との演算が定義されています. この結果の型は
+被演算数のポインタ型となります.
+しかし整数型とポインタ型と
+の演算は定義されていません. さらに
+ポインタ型とそれと{\it compatible}
+\index{compatible@compatible}
+なポインタ型との演算が定義され
+ています. この結果の型は
+{\tt{long int}} になります.
+
+\section{{\tt{x := y << z}}, {\tt{x := y >> z}}}
+
+左シフト演算については {\tt{y}} の型は整数型になります.
+{\tt{z}} の型は {\tt{y}} の型とは無関係に
+{\tt{const}} ありかなしかの {\tt{int}}
+になります. {\tt{x}} の型は {\tt{y}} の型と同じになります.
+
+右シフト演算についても左シフト演算と同様のことがいえます.
+右シフト演算は普通, {\tt{y}} の型が符号付きであれば
+算術シフトでそうでなければ論理シフトとしてバックエンド
+で実装されますが, いずれにしても実装依存になります.
+
+\section{{\tt{x := y \& z}}, {\tt{x := y \^{} z}}, {\tt{x := y | z}}}
+
+ビット毎の論理積, 排他的論理和, 論理和ですので整数型と整数型について
+定義されます.
+
+\section{{\tt{x := -y}}, {\tt{x := \~{}y}}}
+
+単項のマイナスは {\tt{y}} が算術型についてのみ定義されています.
+ビット反転演算は {\tt{y}} が整数型についてのみ定義されています.
+
+\section{{\tt{x := (type)y}}}
+
+型変換を表現する 3 番地コードで対応する
+クラスは以下のようになります. 
+\begin{verbatim}
+struct cast3ac : tac {
+  const type* m_type;   // 型式を保持します
+  cast3ac(var* x, var* y, const type* t) : tac(x,y,0), m_type(t) {}
+};  
+\end{verbatim}
+
+\section{{\tt{x := \&y}}}
+
+{\tt{x}} の型は {\tt{y}} の型へのポインタとなります.
+
+\begin{QandA}
+単項の {\tt{\&}} は左辺値に対して定義されていますが, 
+{\tt {y}} が左辺値を持つことは保証されますか.
+
+回答 : 保証されません. 3 番地コードは C 言
+語ではないのです. 他のプログラミング言語に対し
+てもほぼ同様の 3 番地コードが使用できるでしょう. 3 番地コードの妥当性は
+フロントエンドによって保証されます. 左辺値をもたない中間変数
+ {\tt{y}} に対してでさえも {\tt{x := \&y}} が出力されることがあります.
+\end{QandA}
+
+\section{{\tt{x := *y}}}
+
+{\tt{x := \&y}} と同様に
+{\tt{y}} の型が型 $T$ へのポインタならば
+{\tt{x}} の型は $T$ となります.
+{\tt{y}} の型はオブジェクトへのポインタでなくてはなりません.
+やはり型については
+フロントエンドで保証されることになります.
+バックエンドでは {\tt{x}} の型によって
+対応するターゲットコードを生成します.
+
+\section{{\tt{*y := z}}}
+
+この 3 番地コードでは {\tt{y}} も {\tt{z}} もソースオペランド
+として考えます. {\tt{*y := z}} を表現するクラスは以下のように
+なります.
+\begin{verbatim}
+struct invladdr3ac : public tac {
+  invladdr3ac(var* y, var* z) : tac(0,y,z) {}
+};
+\end{verbatim}
+
+{\tt{z}} の型が $T$ ならば {\tt{y}} の型は $T$ へのポインタ型となります.
+{\tt{z}} の型はスカラー型, 構造体型, 共用体型のいずれかになります.
+バックエンドでは {\tt{z}} の型によって
+対応するターゲットコードを生成します.
+
+
+\section{\tt{x[y] := z}, \tt{x := y[z]}}
+\label{3ac004}
+{\tt{x[y] := z}} における {\tt{x}}, 
+{\tt{x := y[z]}} における {\tt{y}} は
+合成体, すなわち, 構造体型, 共用体型, 配列型であるとします.
+これらは構造体のメンバ参照や, 配列の添字参照で出力されるでしょう.
+バックエンドでは, {\tt{x[y] := z}} であれば {\tt{z}} の型によって,
+{\tt{x := y[z]}} であれば {\tt{x}} の型によって
+対応するターゲットコードを生成します.
+
+\section{{\tt{x := call y}}, {\tt{call y}}, {\tt{param y}}}
+
+\label{_3ac000}函数呼び出しと引数に対する 3 番地コードです.
+対応するクラスは以下のようになります.
+\begin{verbatim}
+struct param3ac : tac {
+  param3ac(var* y) : tac(0,y,0) {}
+};
+
+struct call3ac : tac {
+  call3ac(var* x, var* y) : tac(x,y,0) {}
+};
+\end{verbatim}
+{\tt{call}} の
+直前に, それが参照する {\tt{param}} が, もし複数あれば連続して
+生成されます. これはフロントエンドにより
+保証されます.
+
+{\tt{x := call y}} における {\tt{x}} の型は
+スカラー型, 構造体型, 共用体型のいずれかとなります.
+また {\tt{y}} の型は函数型と
+函数へのポインタ型のいずれかとなります. オペランド {\tt{x}} が
+0 ポインタの
+場合には戻り値を使用しない呼び出しであることを
+表わすとします.
+
+{\tt {param y}} における {\tt{y}} の型も
+スカラー型, 構造体型, 共用体型のいずれかとなります.
+
+バックエンドではそれぞれのオペランドの型に応じて
+対応するターゲットコードを生成します.
+
+\section{{\tt{return}}, {\tt{return y}}}
+
+{\tt{y}} の型はスカラー型, 構造体型, 共用体型のいずれかとなります.
+
+\section{{\tt{goto label}}, {\tt{if y op z then goto label}}, {\tt{label:}}}
+\label{_3ac002}
+無条件分岐, 条件分岐, 分岐先を表わします.
+対応するクラスは以下のようになります.
+
+\begin{verbatim}
+struct goto3ac : tac {
+  to3ac* m_to;  // 分岐先を保持します
+  enum op { NONE, EQ, NE, LE, GE, LT, GT };
+  op m_op;
+  goto3ac() : tac(0,0,0), m_to(0), m_op(NONE) {}
+  goto3ac(op op, var* y, var* z) : tac(0,y,z), m_to(0), m_op(op) {}
+};
+
+struct to3ac : tac {
+  vector<goto3ac*> m_goto;  // 分岐元を保持します
+  to3ac() : tac(0,0,0) {}
+};
+\end{verbatim}
+条件分岐の特別な場合を無条件分岐として扱います.
+条件分岐の比較演算がそれぞれ C 言語の
+{\tt{==}}, {\tt{!=}}, {\tt{<=}}, {\tt{>=}}, {\tt{<}}, {\tt{>}}
+に対応しています. 比較演算が意味をもつ
+ようにすることはフロントエンドによって保証されること
+になります.
+バックエンドでは {\tt{y}} の型によって
+対応するターゲットコードを生成します.
+
+\begin{QandA}
+分岐命令の分岐先をわざわざ 3 番地コードにしているのは何か
+理由があるのでしょうか.
+
+回答 : 3 番地コード最適化の過程で, 分岐先と分岐元との
+参照関係を知りたくなることがあるからです.
+\end{QandA}
+
+\section{ {\tt{x := va\_start y}}, {\tt{x := va\_arg y, type}}, {\tt{va\_end}}}
+
+C 言語の可変個引数はマクロで実装されることもありますが, ターゲットプロセ
+ッサによってはマクロで実現することが困難な場合があります. そこで
+これらの 3 番地コードをバックエンドに処理させることによって
+可変個引数を正しく処理することができるようになります.
+
+\section{alloca x, y}
+\label{_3ac003}
+ISO の C 言語の仕様で variable length array というものがあります.
+\begin{verbatim}
+void f(int n)
+{
+  int a[n];  /* variable length arrray */
+  ...
+}
+\end{verbatim}
+これに対する 3 番地コードを, 例えば以下のように生成します.
+\begin{verbatim}
+f:
+    t0 := 4 * n     # sizeof(int) が 4 だとしています
+    alloca a, t0    # 実行時 a に t0 バイトを割り当てます
+    ...
+\end{verbatim}
+
+\section{asm ``string''}
+
+ISO の C 言語の仕様には C++ 言語に見られる {\tt{asm-declaration}} は
+ありませんので必ずしも必要ではありません.

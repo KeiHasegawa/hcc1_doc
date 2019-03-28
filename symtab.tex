@@ -1,0 +1,334 @@
+\label{symtab002}
+
+\section{記号表のデータ構造と検索}
+C 言語のスコープについては参考文献 \cite{ISO} 6.1.2.1 Scopes of identifiers,
+6.1.2.3 Name spaces of identifiers, 参考文献 \cite{KR} A11.1 「語句範囲」に
+記述されています. そこではスコープが階層的になっていることが述べられていま
+す.
+
+\ref{lex_yacc004} で述べたように, 字句解析では
+記号表を検索する必要がありました.
+文字列からそのエントリを検索するために以下のような
+データ構造を使用することにします.
+
+\label{symtab000}
+\begin{verbatim}
+struct usr;  // プログラムに現われる変数等を表わします.
+struct tag;  // プログラムに現われるタグを表わします.
+
+struct scope {
+  scope* m_parent;            // 外側のスコープを表わします
+  vector<scope*> m_children;  // 内側のスコープを表わします
+  map<string,usr*> m_usrs;    // 名前からエントリを取得します
+  map<string,tag*> m_tags;    // 名前からエントリを取得します
+  static scope* current;
+  static scope root;
+};
+\end{verbatim}
+\index{scope@scope}
+\index{tag@tag}
+\index{usr@usr}
+\index{すこうふ@スコープ}
+
+構文解析の過程では, 新しい {\tt{scope}} を作成したり
+{\tt{scope::current}} を適切な {\tt{scope}} を指すように
+変更することが必要になります. また構文解析だけでなく
+コード生成においても {\tt{scope::current}} を適切な {\tt{scope}} を指すよう
+に変更する必要があります.
+ このため \ref{lex_yacc000} 章で述べた
+文法は以下のように多少変更することになります.
+
+\begin{verbatim}
+compound_statement
+  : '{' enter_block block_item_list leave_block '}'
+  | ...
+  ;
+
+enter_block
+  : {
+      ...
+      vector<scope*>& children = scope::current->m_children;
+      scope* tmp = new scope;
+      tmp->m_parent = scope::current;
+      children.push_back(tmp);
+      scope::current = tmp;
+    }
+  ;
+
+leave_block
+  : { scope::current = scope::current->m_parent; ... ; }
+  ;
+\end{verbatim}
+
+パラメータのスコープでは宣言されたパラメータの順番も保持することになります.
+\begin{verbatim}
+struct param_scope : scope {
+  vector<usr*> m_order;   // パラメータの順番を保持します
+};
+
+direct_declarator
+  : ...
+  | direct_declarator '(' enter_param_scope
+                          parameter_type_list
+                          leave_param_scope ')'
+  | ...
+  ;
+
+enter_param_scope
+  : {
+      vector<scope*>& children = scope::current->m_children;
+      scope* param = new param_scope;
+      param->m_parent = scope::current;
+      children.push_back(param);
+      scope::current = param;
+    }
+  ;
+
+leave_param_scope
+  : { scope::current = scope::current->m_parent; ... ; }
+  ;
+\end{verbatim}
+
+そこで \ref{lex_yacc004} で述べた記号表を検索する函数 {\tt{lookup}} は
+以下のように書くことができるでしょう.
+
+\begin{verbatim}
+int lookup(string name, scope* ptr = scope::current)
+{
+  if ( prev == STRUCT || prev == UNION || prev == ENUM ) {
+    // 直前の字句が struct, union, enum のいずれかであった
+    const map<string, tag*>& tags = ptr->m_tags;
+    p = tags.find(name);
+    if ( p != tags.end() )
+      return TAG_NAME; // 見つかった
+  }
+  else {
+    const map<string, usr*>& usrs = ptr->m_usrs;
+    p = usrs.find(name);
+    if ( p != usrs.end() ) {
+      // 見つかった
+      if ( p->second が typedef によるエントリ )
+        return TYPEDEF_NAME;
+      return IDENTIFIER;
+    }
+  }
+
+  if ( ptr->m_parent )
+    return lookup(name,ptr->m_parent); // スコープの外側を検索
+
+  return 0; // 見つからなかった.
+}
+\end{verbatim}
+
+\begin{QandA}
+同じ名前を持つ変数名は同一スコープで複数回, しかも, エラーにならない形で
+定義もしくは宣言することができます. そのことを考慮すると {\tt{scope}} は以
+下のように, 文字列から複数が該当するようにするのが正しいのではない
+でしょうか.
+\begin{verbatim}
+struct scope {
+  ...
+  map<string,vector<usr*> > m_usrs;  // 複数が該当する
+  ...
+};
+\end{verbatim}
+
+回答 : その通りでした. 例えば, 以下の {\tt{a}} の宣言と
+使用を正しく扱うためには複数が該当するようなデータ構造にする必要がありま
+ す.
+\begin{verbatim}
+void f(void)
+{
+  void g(int);
+  extern int a;
+  g(a);  // グローバル変数 a を参照
+  int a; // グローバル変数 a を隠す
+  g(a);  // ローカル変数 a を参照
+}
+\end{verbatim}
+記号表を検索する函数 {\tt{lookup}} では字句の属性に, 直前に宣言された
+変数を参照すればよいことになります.
+\end{QandA}
+
+\begin{QandA}
+コンパイラの生成する中間変数は記号表に入れなくてもよいのでしょうか.
+
+回答 : 入れるべきでしょう. しかし中間変数は検索する必要がないので
+検索対象に入らないようにするべきでしょう. また
+中間変数が入るスコープは限定されているので, 以下のようなデータ構造を
+用いることがよいでしょう.
+\begin{verbatim}
+struct var;  // コンパイラの中間変数を表わします
+
+struct block : scope {
+  vector<var*> m_vars;
+};
+
+/* yacc による記述を以下のように変更します */
+enter_block
+  : {
+      ...
+      vector<scope*>& children = scope::current->m_children;
+      scope* tmp = new block;  /* ここを block に変更 */
+      tmp->m_parent = scope::current;
+      children.push_back(tmp);
+      scope::current = tmp;
+    }
+  ;
+\end{verbatim}
+\end{QandA}
+
+\begin{QandA}
+\label{symtab001}
+{\tt{tag}} は何を表わしていますか. また
+{\tt{tag}} のデータ構造はどのようになりますか.
+
+回答 : 構造体, 共用体, 列挙およびそれらの不完全型は
+名前をプログラマに付けられますが, それらをタグ名といいます.
+タグ名と変数名等とは衝突しないことになっています. 
+
+\begin{verbatim}
+struct tag {
+  int m_kind;  // struct, union, enum のいずれか
+  string m_name;
+  const type* m_type;
+  file_t m_file;
+  scope* m_scope;
+};
+\end{verbatim}
+\end{QandA}
+\index{tag@tag}
+
+\begin{QandA}
+{\tt{tag}} が {\tt{scope}} から派生していないのは問題にならないのでしょ
+うか.
+
+回答 : C コンパイラのフロントエンドについては問題にはなりませんが,
+C++ コンパイラのフロントエンドであれば {\tt{scope}} から派生
+させるべきでしょう. 以下に単純な例を示します.
+\begin{verbatim}
+struct outer {
+  struct inner {
+    ...
+  }
+  ...
+};
+
+struct inner x; /* C なら OK です. C++ ではエラーです. */
+outer::inner y; // C++ ではこのようになります.
+\end{verbatim}
+この例は C++ では構造体, 共用体が新たなスコープを
+作るということ, C では
+そうではないということを示しています. コード生成も
+C と C++ で違いがあります.
+\begin{verbatim}
+struct T {
+  int x;
+};
+
+struct T t;
+t.x;  // C++ ではメンバ参照演算子 . で scope::current
+      // をスコープ T に移動します.
+      /* C では t が構造体であることから, メンバ x に対するオフ
+         セットと型を問い合わせます. */
+\end{verbatim}
+\end{QandA}
+\index{tag@tag}
+
+\begin{QandA}
+函数の定義と函数の定義ではない宣言とで新たにパラメータスコープを作るか,
+そうしないかを構文解析時に区別したいのですが, どうすればよいのですか.
+
+回答 : エレガントな方法が思いつきませんでしたので, 函数宣言ではパ
+ラメータスコープを
+必ず作成し, そのパラメータスコープを適切に破棄する方法がよいと考えます.
+
+文法を巧妙に書き替えることにより函数宣言における
+{\tt{enter\_param\_scope}} や {\tt{leave\_param\_scope}} 
+を必要な場面でのみ
+行なうことができるのかもしれません. あるいは,
+{\tt{enter\_param\_scope}}
+が還元されたときに, 必要な場合のみ {\tt{param\_scope}} を作成する
+ようにできるのかもしれません.
+
+文法を書き替える方法がうまく機能
+しない原因は構文の複雑さにあ
+りました. 例えば以下のように文法を書き替えることを考えてみましょう.
+
+\begin{verbatim}
+function_definition
+  : function_definition_begin compound_statement
+  ;
+
+function_definition_begin
+  : ...
+  | declaration_specifiers declarator '(' enter_param_scope
+                                          type_parameter_list
+                                          leave_param_scope ')'
+  | ...
+  ;
+\end{verbatim}
+{\tt{yacc}} での衝突も発生することの他に,
+函数の宣言がネストしうることにも注意して下さい.
+
+\begin{verbatim}
+int (*f(int (*a)(double b)))(double c)
+/* 上の文法でいくと c の宣言されたスコープを f のパ
+   ラメータスコープとしてしまうことになります */
+{
+  return a;  /* これがエラーになってしまいます */
+}
+\end{verbatim}
+
+文法を書き替えず, これまでのように文法記号 {\tt{enter\_param\_scope}}
+が還元されるときに必ず {\tt{param\_scope}} を作成すると, 以下のように
+1, 2, 3 の順で作成されます. 
+\[
+{\tt{int\,\,\,(\,*f(
+\underbrace{{\tt{\,int\,\,\,(*a)(
+\overbrace{\tt{\,double\,\,\,b\,}}^{2})\,}}}_{1})\,)
+(\underbrace{\tt{\,double\,\,\,c}\,}_{3})}}
+\]
+このうち 2 と 3 はパラメータスコープから離れるときに
+直ちに破棄されるべきです.
+\end{QandA}
+
+\section{プログラムに現われる変数と中間変数}
+\label{symtab003}
+質問 \ref{symtab001} では記号表のエントリである {\tt{tag}} について
+対応する構造体を示しましたが, プログラムに現われる変数 {\tt{usr}}
+や中間変数 {\tt{var}} については
+前節で述べませんでした. この理由は, これら 2 つが基底クラス {\tt{var}} と
+派生クラス {\tt{usr}} の関係にあり, かつ, {\tt{var}} から派生しているも
+のが他にもあるからです. ここでは簡単にそれぞれがどのような構造体に
+対応しているかだけを示すことにします.
+
+{\tt{var}} に最低限必要な情報は「型」です. 型はフロントエンドが
+コード生成する際に参照されます. 例えば, 型 {\tt{int}} の {\tt{i}} と 型
+{\tt{double}} の {\tt{d}} の加算をフロントエンドが認識したとき
+以下のような 3 番地コードを生成するでしょう.
+\begin{verbatim}
+  t0 := (double)i  # double に変換します
+  t1 := t0 + d     # double の加算をします
+\end{verbatim}
+そして, この 3 番地コードをバックエンドが処理するときに,
+{\tt{i}}, {\tt{d}}, {\tt{t0}}, {\tt{t1}} のために, それぞれの型に対応した
+メモリかレジスタを割り当てることになるでしょう. 
+
+このように {\tt{var}} は 3 番地コードのオペランドとなります. もちろん
+プログラムに現われる変数も 3 番地コードのオペランドとなるので以下のよう
+に {\tt{usr}} は {\tt{var}} の派生クラスとして定義するのがよいでしょう.
+\begin{verbatim}
+struct var {
+  const type* m_type;  // 型を保持します
+  ...
+};
+
+struct usr : var {
+  string m_name;  // プログラムに現われた名前を保持します
+  flag_t m_flag;  // 記憶クラス等を保持します
+  file_t m_file;  // ファイル位置を保持します
+  ...
+};
+\end{verbatim}
+{\tt{var}} の詳細な議論については後の章を参照して下さい.

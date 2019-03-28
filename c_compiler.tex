@@ -1,0 +1,87 @@
+\documentclass{jreport}
+
+\usepackage{graphicx}
+\usepackage{makeidx}
+\usepackage{html}
+\usepackage{color}
+\usepackage{fancybox}
+
+\newtheorem{QandA}{質問}[chapter]
+\newtheorem{Example}{例}[chapter]
+\def\Rubyt#1#2{
+  \mbox{$\displaystyle \mathop{\mbox{#1}}^{\mbox{\tiny #2}}$}
+}
+
+\def\MARU#1{\leavevmode \setbox0\hbox{$\bigcirc$}
+\copy0\kern-\wd0 \hbox to\wd0{\hfil{#1}\hfil}}
+
+\makeindex
+
+\begin{document}
+
+\title{C コンパイラ}
+
+\author{長谷川 啓}
+
+\date{2019.03.14}
+
+\maketitle
+
+\input{read}
+
+\tableofcontents
+
+\chapter{フロントエンドとバックエンドの構成}
+
+\input{front_back}
+
+\chapter{字句解析と構文解析}
+
+\input{lex_yacc}
+
+\chapter{記号表}
+
+\input{symtab}
+
+\chapter{3 番地コード}
+
+\input{3ac}
+
+\chapter{型}
+
+\input{type}
+
+\chapter{宣言}
+
+\input{decl}
+
+\chapter{式}
+
+\input{expr}
+
+\chapter{文}
+
+\input{stmt}
+
+\chapter{コンパイルスピード}
+
+\input{speed}
+
+\chapter{最適化}
+
+\input{optimize}
+
+\appendix
+
+\chapter{変更履歴 }
+\input{revision}
+
+\input{reference}
+
+% platex c_compiler.tex
+% mendex c_compiler.tex
+% platex c_compiler.tex
+
+\printindex
+
+\end{document}
