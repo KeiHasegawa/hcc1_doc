@@ -1,26 +1,26 @@
 %!PS-Adobe-3.0 EPSF-3.0
-%%Title: Microsoft PowerPoint - var.ppt
+%%Title: 
 %%Creator: PScript5.dll Version 5.2.2
-%%CreationDate: 1/16/2008 12:49:39
-%%For: khasegaw
-%%BoundingBox: 10 36 500 833
+%%CreationDate: 5/16/2019 0:0:23
+%%For: khasegawa
+%%BoundingBox: 0 0 540 780
 %%Pages: 1
 %%Orientation: Portrait
 %%PageOrder: Ascend
 %%DocumentNeededResources: (atend)
 %%DocumentSuppliedResources: (atend)
 %%DocumentData: Clean7Bit
-%%TargetDevice: (HP 2500C Series) (3010.106) 146
-%%LanguageLevel: 3
+%%TargetDevice: () (52.3) 320
+%%LanguageLevel: 1
 %%EndComments
 
 %%BeginDefaults
-%%PageBoundingBox: 10 36 500 833
+%%PageBoundingBox: 0 0 540 780
 %%ViewingOrientation: 1 0 0 1
 %%EndDefaults
 
 %%BeginProlog
-%%BeginResource: file Pscript_WinNT_ErrorHandler 5.0 0
+%%BeginResource: file Pscript_WinNT_VMErrorHandler 5.0 0
 /currentpacking where{pop/oldpack currentpacking def/setpacking where{pop false
 setpacking}if}if/$brkpage 64 dict def $brkpage begin/prnt{dup type/stringtype
 ne{=string cvs}if dup length 6 mul/tx exch def/ty 10 def currentpoint/toy exch
@@ -44,16 +44,24 @@ rcheck{dup xcheck{({)tprint{typeprint}forall(})tprint}{([)tprint{typeprint}
 forall(])tprint}ifelse}{pop(-packedarray- )tprint}ifelse}readonly def/courier
 /Courier findfont 10 scalefont def end errordict/handleerror{systemdict begin
 $error begin $brkpage begin newerror{/newerror false store vmstatus pop pop 0
-ne{grestoreall}if errorname(VMerror)ne{showpage}if initgraphics courier setfont
-lmargin 720 moveto errorname(VMerror)eq{userdict/ehsave known{clear userdict
-/ehsave get restore 2 vmreclaim}if vmstatus exch pop exch pop PrtVMMsg}{
-(ERROR: )prnt errorname prnt nl(OFFENDING COMMAND: )prnt/command load prnt
-$error/ostack known{nl nl(STACK:)prnt nl nl $error/ostack get aload length{==}
-repeat}if}ifelse systemdict/showpage get exec(%%[ Error: )print errorname
-=print(; OffendingCommand: )print/command load =print( ]%%)= flush}if end end
-end}dup 0 systemdict put dup 4 $brkpage put bind readonly put/currentpacking
-where{pop/setpacking where{pop oldpack setpacking}if}if
+ne{grestoreall}if initgraphics courier setfont lmargin 720 moveto errorname
+(VMerror)eq{version cvi 2016 ge{userdict/ehsave known{clear userdict/ehsave get
+restore 2 vmreclaim}if vmstatus exch pop exch pop PrtVMMsg}if}if systemdict
+/showpage get exec(%%[ Error: )print errorname =print(; OffendingCommand: )
+print/command load =print( ]%%)= flush}if end end end}dup 0 systemdict put dup
+4 $brkpage put bind readonly put/currentpacking where{pop/setpacking where{pop
+oldpack setpacking}if}if
 %%EndResource
+%%BeginProcSet: Pscript_Res_Emul 5.0 0
+/defineresource where{pop}{userdict begin/defineresource{userdict/Resources 2
+copy known{get begin}{15 dict dup begin put}ifelse exch readonly exch
+currentdict 1 index known not{dup 30 dict def}if load 3 -1 roll 2 index put
+end}bind readonly def/findresource{userdict/Resources get exch get exch get}
+bind readonly def/resourceforall{pop pop pop pop}bind readonly def
+/resourcestatus{userdict/Resources 2 copy known{get exch 2 copy known{get exch
+known{0 -1 true}{false}ifelse}{pop pop pop false}ifelse}{pop pop pop pop false}
+ifelse}bind readonly def end}ifelse
+%%EndProcSet
 userdict /Pscript_WinNT_Incr 230 dict dup begin put
 %%BeginResource: file Pscript_FatalError 5.0 0
 userdict begin/FatalErrorIf{{initgraphics findfont 1 index 0 eq{exch pop}{dup
@@ -120,34 +128,14 @@ E definefont !}bind d/hfMkCIDFont{/CIDFont findresource @ length 2 add dict `{1
 16 dict d/CIDFontName 1 ^ d & E 1 ^ ~/CIDFont defineresource ![~]composefont !}
 bind d
 %%EndResource
-%%BeginResource: file Pscript_Win_Utils_L2 5.0 0
-/rf/rectfill , d/fx{1 1 dtransform @ 0 ge{1 sub 0.5}{1 add -0.5}? 3 -1 $ @ 0 ge
-{1 sub 0.5}{1 add -0.5}? 3 1 $ 4 1 $ idtransform 4 -2 $ idtransform}b/BZ{4 -2 $
-snap + +S fx rf}b/rs/rectstroke , d/rc/rectclip , d/UtilsInit{currentglobal{F
-setglobal}if}b/scol{! setcolor}b/colspA/DeviceGray d/colspABC/DeviceRGB d
-/colspRefresh{colspABC setcolorspace}b/SetColSpace{colspABC setcolorspace}b
-/resourcestatus where{!/ColorRendering/ProcSet resourcestatus{! ! T}{F}?}{F}?
-not{/ColorRendering<</GetHalftoneName{currenthalftone @/HalftoneName known{
-/HalftoneName get}{!/none}?}bn/GetPageDeviceName{currentpagedevice @
-/PageDeviceName known{/PageDeviceName get @ null eq{!/none}if}{!/none}?}bn
-/GetSubstituteCRD{!/DefaultColorRendering/ColorRendering resourcestatus{! !
-/DefaultColorRendering}{(DefaultColorRendering*){cvn exit}127 string
-/ColorRendering resourceforall}?}bn>>/defineresource where{!/ProcSet
-defineresource !}{! !}?}if/buildcrdname{/ColorRendering/ProcSet findresource `
-mark GetHalftoneName @ type @/nametype ne ~/stringtype ne and{!/none}if(.)
-GetPageDeviceName @ type @/nametype ne ~/stringtype ne and{!/none}if(.)5 ^ 0 5
--1 1{^ length add}for string 6 1 $ 5 ^ 5{~ 1 ^ cvs length 1 ^ length 1 ^ sub
-getinterval}repeat ! cvn 3 1 $ ! ! E}b/definecolorrendering{~ buildcrdname ~
-/ColorRendering defineresource !}b/findcolorrendering where{!}{
-/findcolorrendering{buildcrdname @/ColorRendering resourcestatus{! ! T}{
-/ColorRendering/ProcSet findresource ` GetSubstituteCRD E F}?}b}?
-/selectcolorrendering{findcolorrendering !/ColorRendering findresource
-setcolorrendering}b/G2UBegin{findresource/FontInfo get/GlyphNames2Unicode get
-`}bind d/G2CCBegin{findresource/FontInfo get/GlyphNames2HostCode get `}bind d
-/G2UEnd{E}bind d/AddFontInfoBegin{/FontInfo 8 dict @ `}bind d/AddFontInfo{
-/GlyphNames2Unicode 16 dict d/GlyphNames2HostCode 16 dict d}bind d
-/AddFontInfoEnd{E d}bind d/T0AddCFFMtx2{/CIDFont findresource/Metrics2 get ` d
-E}bind d
+%%BeginResource: file Pscript_Win_Utils_L1 5.0 0
+/rf{N rp L}b/fx{1 1 dtransform @ 0 ge{1 sub 1}{1 add -0.25}? 3 -1 $ @ 0 ge{1
+sub 1}{1 add -0.25}? 3 1 $ 4 1 $ idtransform 4 -2 $ idtransform}b/BZ{4 -2 $
+snap + +S fx rf}b/rs{N rp C K}b/rc{N rp clip N}b/UtilsInit{}b/setcolorspace{!}b
+/scol{[/setgray/setrgbcolor/setcolor/setcmykcolor/setcolor/setgray]~ get cvx
+exec}b/colspRefresh{}b/AddFontInfoBegin{/FontInfo 8 dict @ `}bind d/AddFontInfo
+{/GlyphNames2Unicode 16 dict d/GlyphNames2HostCode 16 dict d}bind d
+/AddFontInfoEnd{E d}bind d
 %%EndResource
 end
 %%EndProlog
@@ -155,11 +143,11 @@ end
 %%BeginSetup
 [ 1 0 0 1 0 0 ] false Pscript_WinNT_Incr dup /initialize get exec
 1 setlinecap 1 setlinejoin
-/mysetup [ 72 600 V 0 0 -72 600 V 10.00063 833.0003 ] def 
+/mysetup [ 72 600 V 0 0 -72 600 V 0 780.09448 ] def 
 %%EndSetup
 
 %%Page: 1 1
-%%PageBoundingBox: 10 36 577 833
+%%PageBoundingBox: 0 0 540 780
 %%EndPageComments
 %%BeginPageSetup
 /DeviceRGB dup setcolorspace /colspABC exch def
@@ -167,93 +155,70 @@ mysetup concat colspRefresh
 %%EndPageSetup
 
 Pscript_WinNT_Incr begin
-%%BeginResource: file Pscript_WinNT_Compat 5.0 0
-userdict/Pscript_WinNT_Compat 19 dict dup begin/bd{bind def}bind def/ld{load
-def}bd/$x matrix def/ANSIVec[16#0/grave 16#1/acute 16#2/circumflex 16#3/tilde
-16#4/macron 16#5/breve 16#6/dotaccent 16#7/dieresis 16#8/ring 16#9/cedilla 16#A
-/hungarumlaut 16#B/ogonek 16#C/caron 16#D/dotlessi 16#27/quotesingle 16#60
-/grave 16#7C/bar 16#82/quotesinglbase 16#83/florin 16#84/quotedblbase 16#85
-/ellipsis 16#86/dagger 16#87/daggerdbl 16#88/circumflex 16#89/perthousand 16#8A
-/Scaron 16#8B/guilsinglleft 16#8C/OE 16#91/quoteleft 16#92/quoteright 16#93
-/quotedblleft 16#94/quotedblright 16#95/bullet 16#96/endash 16#97/emdash 16#98
-/tilde 16#99/trademark 16#9A/scaron 16#9B/guilsinglright 16#9C/oe 16#9F
-/Ydieresis 16#A0/space 16#A1/exclamdown 16#A4/currency 16#A5/yen 16#A6
-/brokenbar 16#A7/section 16#A8/dieresis 16#A9/copyright 16#AA/ordfeminine 16#AB
-/guillemotleft 16#AC/logicalnot 16#AD/hyphen 16#AE/registered 16#AF/macron
-16#B0/degree 16#B1/plusminus 16#B2/twosuperior 16#B3/threesuperior 16#B4/acute
-16#B5/mu 16#B6/paragraph 16#B7/periodcentered 16#B8/cedilla 16#B9/onesuperior
-16#BA/ordmasculine 16#BB/guillemotright 16#BC/onequarter 16#BD/onehalf 16#BE
-/threequarters 16#BF/questiondown 16#C0/Agrave 16#C1/Aacute 16#C2/Acircumflex
-16#C3/Atilde 16#C4/Adieresis 16#C5/Aring 16#C6/AE 16#C7/Ccedilla 16#C8/Egrave
-16#C9/Eacute 16#CA/Ecircumflex 16#CB/Edieresis 16#CC/Igrave 16#CD/Iacute 16#CE
-/Icircumflex 16#CF/Idieresis 16#D0/Eth 16#D1/Ntilde 16#D2/Ograve 16#D3/Oacute
-16#D4/Ocircumflex 16#D5/Otilde 16#D6/Odieresis 16#D7/multiply 16#D8/Oslash
-16#D9/Ugrave 16#DA/Uacute 16#DB/Ucircumflex 16#DC/Udieresis 16#DD/Yacute 16#DE
-/Thorn 16#DF/germandbls 16#E0/agrave 16#E1/aacute 16#E2/acircumflex 16#E3
-/atilde 16#E4/adieresis 16#E5/aring 16#E6/ae 16#E7/ccedilla 16#E8/egrave 16#E9
-/eacute 16#EA/ecircumflex 16#EB/edieresis 16#EC/igrave 16#ED/iacute 16#EE
-/icircumflex 16#EF/idieresis 16#F0/eth 16#F1/ntilde 16#F2/ograve 16#F3/oacute
-16#F4/ocircumflex 16#F5/otilde 16#F6/odieresis 16#F7/divide 16#F8/oslash 16#F9
-/ugrave 16#FA/uacute 16#FB/ucircumflex 16#FC/udieresis 16#FD/yacute 16#FE/thorn
-16#FF/ydieresis]def currentdict{dup type/operatortype eq{[exch]cvx def}{pop
-pop}ifelse}forall/initialize{currentdict exch begin begin}bind def/terminate{
-/@FL where not{pop end end}{pop}ifelse}bind def/suspend/terminate load def
-/resume/initialize load def/RS{/pagesave where{pop pagesave restore}{$x matrix
-invertmatrix concat}ifelse}def/SS{/pagesave save def}def/CB{pop pop pop pop}def
-/B{pop pop pop pop}def/:/gsave load def/;/grestore load def/N/newpath load def
-end put
+%%BeginResource: file Pscript_Win_GdiObject 5.0 0
+/SavedCTM null d/CTMsave{/SavedCTM SavedCTM currentmatrix d}b/CTMrestore
+{SavedCTM setmatrix}b/mp null d/ADO_mxRot null d/GDIHMatrix null d
+/GDIHPatternDict 22 dict d GDIHPatternDict `/PatternType 1 d/PaintType 2 d/Reps
+L2?{1}{5}? d/XStep 8 Reps mul d/YStep XStep d/BBox[0 0 XStep YStep]d/TilingType
+1 d/PaintProc{` 1 Lw[]0 sd PaintData , exec E}b/FGnd null d/BGnd null d
+/HS_Horizontal{horiz}b/HS_Vertical{vert}b/HS_FDiagonal{fdiag}b/HS_BDiagonal
+{biag}b/HS_Cross{horiz vert}b/HS_DiagCross{fdiag biag}b/MaxXYStep XStep YStep
+gt{XStep}{YStep}? d/horiz{Reps{0 4 M XStep 0 - 0 8 +}repeat 0 -8 Reps mul + K}b
+/vert{Reps{4 0 M 0 YStep - 8 0 +}repeat 0 -8 Reps mul + K}b/biag{Reps{0 0 M
+MaxXYStep @ - 0 YStep neg M MaxXYStep @ - 0 8 +}repeat 0 -8 Reps mul + 0 YStep
+M 8 8 - K}b/fdiag{Reps{0 0 M MaxXYStep @ neg - 0 YStep M MaxXYStep @ neg - 0 8
++}repeat 0 -8 Reps mul + MaxXYStep @ M 8 -8 - K}b E/makehatch{4 -2 $/yOrg ~ d
+/xOrg ~ d GDIHPatternDict/PaintData 3 -1 $ put CTMsave GDIHMatrix setmatrix
+GDIHPatternDict matrix xOrg yOrg + mp CTMrestore ~ U ~ 2 ^ put}b/h0{/h0
+/HS_Horizontal makehatch}b/h1{/h1/HS_Vertical makehatch}b/h2{/h2/HS_FDiagonal
+makehatch}b/h3{/h3/HS_BDiagonal makehatch}b/h4{/h4/HS_Cross makehatch}b/h5{/h5
+/HS_DiagCross makehatch}b/GDIBWPatternMx null d/pfprep{save 8 1 $
+/PatternOfTheDay 8 1 $ GDIBWPatternDict `/yOrg ~ d/xOrg ~ d/PaintData ~ d/yExt
+~ d/Width ~ d/BGnd ~ d/FGnd ~ d/Height yExt RepsV mul d/mx[Width 0 0 Height 0
+0]d E build_pattern ~ !}b/pfbf{/fEOFill ~ d pfprep hbf fEOFill{O}{L}? restore}b
+/GraphInit{GDIHMatrix null eq{/SavedCTM matrix d : ADO_mxRot concat 0 0 snap +
+: 0.48 @ GDIHPatternDict ` YStep mul ~ XStep mul ~ nonzero_dsnap YStep V ~
+XStep V ~ E +S/GDIHMatrix matrix currentmatrix readonly d ; : 0.24 -0.24 +S
+GDIBWPatternDict ` Width Height E nonzero_dsnap +S/GDIBWPatternMx matrix
+currentmatrix readonly d ; ;}if}b
+%%EndResource
+%%BeginResource: file Pscript_Win_GdiObject_L1 5.0 0
+/GDIBWPatternDict 25 dict @ `/PatternType 1 d/PaintType 2 d/RepsV 6 d/RepsH 5 d
+/BBox[0 0 RepsH 1]d/TilingType 1 d/XStep 1 d/YStep 1 d/Height 8 RepsV mul d
+/Width 8 d/mx[Width 0 0 Height neg 0 Height]d/FGnd null d/BGnd null d
+/SetBGndFGnd{}b/PaintProc{` SetBGndFGnd RepsH{Width Height F mx PaintData
+imagemask Width 0 +}repeat E}b E d/GDIpattfill{@ ` BGnd null ne PaintType 2 eq
+and{: BGnd aload ! scol fEOFill{O}{L}? ; FGnd aload ! U/iCol 2 ^ put @ 0 eq{!
+2}{@ 1 eq ~ 2 eq or{4}{5}?}? -1 $}if E @ patterncalc : 4 ^/PaintType get 2 eq
+{iCol 0 eq{6 -1 $}if iCol 1 eq iCol 2 eq or{8 -3 $}if iCol 3 eq iCol 4 eq or{9
+-4 $}if iCol scol}if fEOFill{eoclip}{clip}? N patternfill ; N}b/hbf
+{GDIpattfill}b/hfMain{/fEOFill ~ d ~/iCol ~ d GDIpattfill}b/hf{: hfMain ;}b
+/mpstr 1 string d/mp{~ @ length 12 add dict copy `/PatternCTM matrix
+currentmatrix d/PatternMatrix ~ d/PatWidth XStep mpstr length mul d/PatHeight
+YStep d/FontType 3 d/Encoding 256 array d 3 string 0 1 255{Encoding ~ @ 3 ^ cvs
+cvn put}for !/FontMatrix matrix d/FontBBox BBox d/BuildChar{! @ ` XStep 0
+FontBBox aload ! setcachedevice/PaintProc , E : exec ;}b & E ~ @ 3 -1 $
+definefont}b/build_pattern{: GDIBWPatternDict ` Width Height E dsnap +S
+/GDIBWPatternMx matrix currentmatrix d ; CTMsave GDIBWPatternMx setmatrix
+GDIBWPatternDict @ ` xOrg yOrg E matrix + mp CTMrestore}b/patterncalc{` :
+PatternCTM setmatrix PatternMatrix concat BBox aload ! ! ! + pathbbox ;
+PatHeight V ceiling 4 1 $ PatWidth V ceiling 4 1 $ PatHeight V floor 4 1 $
+PatWidth V floor 4 1 $ 2 ^ sub cvi abs ~ 3 ^ sub cvi abs ~ 4 2 $ PatHeight mul
+~ PatWidth mul ~ E}b/patternfill{5 -1 $ @ ` Ji PatternCTM setmatrix
+PatternMatrix concat 0 2 ^ 2 ^ M 0 1 mpstr length 1 sub{1 ^ mpstr 3 1 $ put}for
+! 2 ^{currentpoint 5 ^{mpstr S}repeat YStep add M}repeat ! ! ! ! E}b/pbf{: 14
+dict `/fGray ~ d/fEOFill ~ d/yOrg ~ d/xOrg ~ d/PaintData ~ d/OutputBPP ~ d
+/Height ~ d/Width ~ d/mx xOrg yOrg matrix + d fGray{/PaintProc{` Width Height
+OutputBPP mx PaintData image E}b}{/PaintProc{` Width Height 8 mx PaintData F
+OutputBPP 8 idiv colorimage E}b}? pathbbox fEOFill{eoclip}{clip}?/Top ~ d/Right
+~ d/Bottom ~ d/Left ~ d Top Height neg Bottom 1 sub{Left Width Right 1 sub{1 ^
+2 copy + & PaintProc neg ~ neg ~ +}bind for !}bind for E ;}b
 %%EndResource
 end reinitialize
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-NP 113 71 m 4613 71 l 4613 6571 l 113 6571 l CP 
-eoclip
-1 1 1 SC
-NP 113 71 m 4613 71 l 4613 6571 l 113 6571 l CP 
-eofill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 297 175 m 264 175 237 202 237 235 c 237 474 l 237 507 264 533 297 533 c 649 533 l 682 533 709 507 709 474 c 709 235 l 709 202 682 175 649 175 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol Pscript_WinNT_Incr begin
+: N 0 0 4500 6500 rp C 
+1 1 1 1 scol  L ; 0 0 0 1 scol 1 Lj 1 Lc 100 Lw solid N 183 103 M 150 103 123 130 123 163 -c 123 402 I 123 435 150 462 183 462 -c 535 462 I 568 462 595 435 595 402 -c 595 163 I 595 130 568 103 535 103 -c C 
+: [ 0.063 0 0 0.063 0 0 ] concat K 
+; Pscript_WinNT_Incr begin
 %%BeginResource: file Pscript_Text 5.0 0
 /TextInit{TextInitialised? not{/Pscript_Windows_Font & d/TextInitialised? T d
 /fM[1 0 0 1 0 0]d/mFM matrix d/iMat[1 0 0.212557 1 0 0]d}if}b/copyfont{1 ^
@@ -320,895 +285,134 @@ Pscript_WinNT_Incr begin
 %%EndResource
 end reinitialize
 
-%%IncludeResource: font TimesNewRomanPS-BoldItalicMT
-Pscript_WinNT_Incr begin
-%%BeginResource: file Pscript_Win_Euro_L2 5.0 0
-/UseT3EuroFont{/currentdistillerparams where{pop currentdistillerparams
-/CoreDistVersion get 4000 le}{false}ifelse}bind def/NewEuroT3Font?{dup/FontType
-get 3 eq{dup/EuroFont known exch/BaseFont known and}{pop false}ifelse}bind def
-/T1FontHasEuro{dup/CharStrings known not{dup NewEuroT3Font?{dup/EuroGlyphName
-get exch/EuroFont get/CharStrings get exch known{true}{false}ifelse}{pop false}
-ifelse}{dup/FontType get 1 eq{/CharStrings get/Euro known}{dup/InfoDict known{
-/InfoDict get/Euro known}{/CharStrings get/Euro known}ifelse}ifelse}ifelse}bind
-def/FontHasEuro{findfont dup/Blend known{pop true}{T1FontHasEuro}ifelse}bind
-def/EuroEncodingIdx 1 def/EuroFontHdr{12 dict begin/FontInfo 10 dict dup begin
-/version(001.000)readonly def/Notice(Copyright (c)1999 Adobe Systems
-Incorporated. All Rights Reserved.)readonly def/FullName(Euro)readonly def
-/FamilyName(Euro)readonly def/Weight(Regular)readonly def/isFixedPitch false
-def/ItalicAngle 0 def/UnderlinePosition -100 def/UnderlineThickness 50 def end
-readonly def/FontName/Euro def/Encoding 256 array 0 1 255{1 index exch/.notdef
-put}for def/PaintType 0 def/FontType 1 def/FontMatrix[0.001 0 0 0.001 0 0]def
-/FontBBox{-25 -23 1500 804}readonly def currentdict end dup/Private 20 dict dup
-begin/ND{def}def/NP{put}def/lenIV -1 def/RD{string currentfile exch
-readhexstring pop}def/-|{string currentfile exch readstring pop}executeonly def
-/|-{def}executeonly def/|{put}executeonly def/BlueValues[-20 0 706 736 547 572]
-|-/OtherBlues[-211 -203]|-/BlueScale 0.0312917 def/MinFeature{16 16}|-/StdHW
-[60]|-/StdVW[71]|-/ForceBold false def/password 5839 def/Erode{8.5 dup 3 -1
-roll 0.1 mul exch 0.5 sub mul cvi sub dup mul 71 0 dtransform dup mul exch dup
-mul add le{pop pop 1.0 1.0}{pop pop 0.0 1.5}ifelse}def/OtherSubrs[{}{}{}
-{systemdict/internaldict known not{pop 3}{1183615869 systemdict/internaldict
-get exec dup/startlock known{/startlock get exec}{dup/strtlck known{/strtlck
-get exec}{pop 3}ifelse}ifelse}ifelse}executeonly]|-/Subrs 5 array dup 0
-<8E8B0C100C110C110C210B>put dup 1<8B8C0C100B>put dup 2<8B8D0C100B>put dup 3<0B>
-put dup 4<8E8C8E0C100C110A0B>put |- 2 index/CharStrings 256 dict dup begin
-/.notdef<8b8b0d0e>def end end put put dup/FontName get exch definefont pop}bind
-def/AddEuroGlyph{2 index exch EuroEncodingIdx 1 eq{EuroFontHdr}if systemdict
-begin/Euro findfont dup dup/Encoding get 5 1 roll/Private get begin/CharStrings
-get dup 3 index known{pop pop pop pop end end}{begin 1 index exch def end end
-end EuroEncodingIdx dup 1 add/EuroEncodingIdx exch def exch put}ifelse}bind def
-/GetNewXUID{currentdict/XUID known{[7 XUID aload pop]true}{currentdict/UniqueID
-known{[7 UniqueID]true}{false}ifelse}ifelse}bind def/BuildT3EuroFont{exch 16
-dict begin dup/FontName exch def findfont dup/Encoding get/Encoding exch def
-dup length 1 add dict copy dup/FID undef begin dup dup/FontName exch def
-/Encoding 256 array 0 1 255{1 index exch/.notdef put}for def GetNewXUID{/XUID
-exch def}if currentdict end definefont pop/BaseFont exch findfont 1000
-scalefont def/EuroFont exch findfont 1000 scalefont def pop/EuroGlyphName exch
-def/FontType 3 def/FontMatrix[.001 0 0 .001 0 0]def/FontBBox BaseFont/FontBBox
-get def/Char 1 string def/BuildChar{exch dup begin/Encoding get 1 index get
-/Euro eq{BaseFont T1FontHasEuro{false}{true}ifelse}{false}ifelse{EuroFont
-setfont pop userdict/Idx 0 put EuroFont/Encoding get{EuroGlyphName eq{exit}
-{userdict/Idx Idx 1 add put}ifelse}forall userdict/Idx get}{dup dup Encoding
-exch get BaseFont/Encoding get 3 1 roll put BaseFont setfont}ifelse Char 0 3 -1
-roll put Char stringwidth newpath 0 0 moveto Char true charpath flattenpath
-pathbbox setcachedevice 0 0 moveto Char show end}bind def currentdict end dup
-/FontName get exch definefont pop}bind def/AddEuroToT1Font{dup findfont dup
-length 10 add dict copy dup/FID undef begin/EuroFont 3 -1 roll findfont 1000
-scalefont def CharStrings dup length 1 add dict copy begin/Euro{EuroFont
-setfont pop EuroGBBox aload pop setcachedevice 0 0 moveto EuroGName glyphshow}
-bind def currentdict end/CharStrings exch def GetNewXUID{/XUID exch def}if 3 1
-roll/EuroGBBox exch def/EuroGName exch def currentdict end definefont pop}bind
-def/BuildNewFont{UseT3EuroFont{BuildT3EuroFont}{pop AddEuroToT1Font}ifelse}bind
-def/UseObliqueEuro{findfont/FontMatrix get dup 2 get 0 eq exch dup 0 get exch 3
-get eq and UseT3EuroFont or}bind def
-%%EndResource
-end reinitialize
-/TimesNewRomanPS-BoldItalicMT FontHasEuro not
-{
-/Euro.TimesNewRomanPS-BoldItalicMT
-/TimesNewRomanPS-BoldItalicMT UseObliqueEuro {
- [500 0 16 -14 599 676 ] 
-<9BF8880DB1F720037DB901F7ADB101F7FCB101F910B301F84CF7FC1596B105FB6C06ABDB
-D7F732EE8B08CAA263511F8B7A897A887A089E06B4F7260557AB74964B8B08FB348BFB1E
-FB1F4FFB1F085906806505B906867D877E877D085C06806505BC06846A876A8B6908FB09
-BA3DF7111EF7048BC9CBCFDA08799C0558535B51388B084D7FC6BE1F8BBA94BA97B808F7
-6C0696B105FB6D068F998F98909908090E>
-} {
- [500 0 -10 -14 484 676 ] 
-<80F8880DBAF72F03F8639E037DB901F7ADB101F7FCB101F910B301F83EF7FC1596B105FB
-7F0693D8A8F735F18B08DE8BAD3E9043089E06F7260752A87099488B088F0ABCF72903F8
-639E037DB901F7ADB101F7FCB101F910B301FB318B26FB1976FB25086206806505BB068A
-7D8B7E8B7D086706806505BC0696FB24CEFB2BF73B8B08F68BB8C4BCE108749C05664E6C
-563A8B08FB028B7FF74088D808F7620696B105FB6D068B998B988C9908090E>
-} ifelse
-AddEuroGlyph
-/Euro /TimesNewRomanPS-BoldItalicMT /TimesNewRomanPS-BoldItalicMT-Copy BuildNewFont
-} if
-F /F0 0 /256 T /TimesNewRomanPS-BoldItalicMT mF 
-/F0SD0 F0 [208 0 0 -208 0 0 ] mFS
-F0SD0 Ji 
-318 430 M (var)[92 104  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1147 3463 m 1114 3463 1087 3489 1087 3522 c 1087 3761 l 1087 3794 1114 3821 1147 3821 c 1783 3821 l 1816 3821 1843 3794 1843 3761 c 1843 3522 l 1843 3489 1816 3463 1783 3463 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 1168 3718 M (addrof)[104 104 104 81 105  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1005 580 m 972 580 945 607 945 640 c 945 879 l 945 912 972 939 1005 939 c 1358 939 l 1391 939 1418 912 1418 879 c 1418 640 l 1418 607 1391 580 1358 580 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 1027 836 M (usr)[116 81  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1100 2774 m 1067 2774 1040 2801 1040 2834 c 1040 3073 l 1040 3106 1067 3132 1100 3132 c 2020 3132 l 2053 3132 2080 3106 2080 3073 c 2080 2834 l 2080 2801 2053 2774 2020 2774 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 1121 3029 M (generated)[104 92 116 92 82 104 59 92  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1194 6033 m 1161 6033 1134 6060 1134 6093 c 1134 6332 l 1134 6365 1161 6392 1194 6392 c 1642 6392 l 1675 6392 1702 6365 1702 6332 c 1702 6093 l 1702 6060 1675 6033 1642 6033 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 1215 6289 M (after)[104 69 59 92  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1194 3982 m 1161 3982 1134 4009 1134 4042 c 1134 4281 l 1134 4314 1161 4341 1194 4341 c 1500 4341 l 1533 4341 1560 4314 1560 4281 c 1560 4042 l 1560 4009 1533 3982 1500 3982 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 1215 4238 M (ref)[81 93  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1998 3982 m 1965 3982 1938 4009 1938 4042 c 1938 4281 l 1938 4314 1965 4341 1998 4341 c 2681 4341 l 2714 4341 2741 4314 2741 4281 c 2741 4042 l 2741 4009 2714 3982 2681 3982 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 2019 4238 M (refaddr)[81 93 69 104 104 104  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 3179 3982 m 3146 3982 3119 4009 3119 4042 c 3119 4281 l 3119 4314 3146 4341 3179 4341 c 3721 4341 l 3754 4341 3781 4314 3781 4281 c 3781 4042 l 3781 4009 3754 3982 3721 3982 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 3201 4238 M (refbit)[81 93 69 104 59  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1620 2233 m 1587 2233 1560 2260 1560 2293 c 1560 2532 l 1560 2565 1587 2592 1620 2592 c 2587 2592 l 2620 2592 2646 2565 2646 2532 c 2646 2293 l 2646 2260 2620 2233 2587 2233 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 1641 2489 M (compound)[92 104 163 104 104 116 116  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1620 958 m 1587 958 1560 985 1560 1018 c 1560 1257 l 1560 1290 1587 1317 1620 1317 c 2728 1317 l 2761 1317 2788 1290 2788 1257 c 2788 1018 l 2788 985 2761 958 2728 958 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 1641 1214 M (constant<T>)[92 104 116 81 58 104 116 58 119 128  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1620 1808 m 1587 1808 1560 1835 1560 1868 c 1560 2107 l 1560 2140 1587 2167 1620 2167 c 2966 2167 l 2999 2167 3025 2140 3025 2107 c 3025 1868 l 3025 1835 2999 1808 2966 1808 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 1641 2064 M (enum_member)[92 116 116 162 104 163 92 163 104 92  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1620 1383 m 1587 1383 1560 1410 1560 1443 c 1560 1682 l 1560 1715 1587 1742 1620 1742 c 2681 1742 l 2714 1742 2741 1715 2741 1682 c 2741 1443 l 2741 1410 2714 1383 2681 1383 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 1641 1639 M (with_initial)[139 58 58 116 104 58 116 58 58 58 104  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 1194 5514 m 1161 5514 1134 5540 1134 5573 c 1134 5812 l 1134 5845 1161 5872 1194 5872 c 1736 5872 l 1769 5872 1795 5845 1795 5812 c 1795 5573 l 1795 5540 1769 5514 1736 5514 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 1215 5769 M (var01)[92 104 81 104  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 2186 5514 m 2153 5514 2127 5540 2127 5573 c 2127 5812 l 2127 5845 2153 5872 2186 5872 c 2728 5872 l 2761 5872 2788 5845 2788 5812 c 2788 5573 l 2788 5540 2761 5514 2728 5514 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 2208 5769 M (log01)[58 104 104 104  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 2423 3132 m 2390 3132 2363 3159 2363 3192 c 2363 3431 l 2363 3464 2390 3491 2423 3491 c 3201 3491 l 3234 3491 3261 3464 3261 3431 c 3261 3192 l 3261 3159 3234 3132 3201 3132 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 2444 3388 M (genaddr)[104 92 116 104 104 104  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 477 533 m 477 760 l 473 756 l 904 756 l 906 757 l 907 760 l 906 762 l 904 763 l 473 763 l 471 762 l 470 760 l 470 533 l 471 531 l 473 530 l 476 531 l 477 533 l CP 
-895 735 m 945 760 l 895 785 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 477 533 m 477 2953 l 473 2950 l 998 2950 l 1001 2951 l 1002 2953 l 1001 2956 l 998 2956 l 473 2956 l 471 2956 l 470 2953 l 470 533 l 471 531 l 473 530 l 476 531 l 477 533 l CP 
-990 2928 m 1040 2953 l 990 2978 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 477 533 m 477 3642 l 473 3639 l 1045 3639 l 1048 3640 l 1048 3642 l 1048 3644 l 1045 3645 l 473 3645 l 471 3644 l 470 3642 l 470 533 l 471 531 l 473 530 l 476 531 l 477 533 l CP 
-1037 3617 m 1087 3642 l 1037 3667 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 477 533 m 477 4162 l 473 4158 l 1092 4158 l 1094 4159 l 1095 4162 l 1094 4164 l 1092 4165 l 473 4165 l 471 4164 l 470 4162 l 470 533 l 471 531 l 473 530 l 476 531 l 477 533 l CP 
-1084 4137 m 1134 4162 l 1084 4187 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 477 533 m 477 5693 l 473 5690 l 1092 5690 l 1094 5691 l 1095 5693 l 1094 5695 l 1092 5696 l 473 5696 l 471 5695 l 470 5693 l 470 533 l 471 531 l 473 530 l 476 531 l 477 533 l CP 
-1084 5668 m 1134 5693 l 1084 5718 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 477 533 m 477 6213 l 473 6210 l 1092 6210 l 1094 6210 l 1095 6213 l 1094 6215 l 1092 6216 l 473 6216 l 471 6215 l 470 6213 l 470 533 l 471 531 l 473 530 l 476 531 l 477 533 l CP 
-1084 6188 m 1134 6213 l 1084 6238 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 1795 5690 m 2085 5690 l 2087 5691 l 2088 5693 l 2087 5695 l 2085 5696 l 1795 5696 l 1793 5695 l 1792 5693 l 1793 5691 l 1795 5690 l CP 
-2077 5668 m 2127 5693 l 2077 5718 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 2741 4158 m 3078 4158 l 3080 4159 l 3081 4162 l 3080 4164 l 3078 4165 l 2741 4165 l 2739 4164 l 2738 4162 l 2739 4159 l 2741 4158 l CP 
-3069 4137 m 3119 4162 l 3069 4187 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 1560 4158 m 1896 4158 l 1899 4159 l 1899 4162 l 1899 4164 l 1896 4165 l 1560 4165 l 1558 4164 l 1557 4162 l 1558 4159 l 1560 4158 l CP 
-1888 4137 m 1938 4162 l 1888 4187 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 2080 2950 m 2812 2950 l 2814 2951 l 2815 2953 l 2815 3091 l 2814 3093 l 2812 3094 l 2810 3093 l 2809 3091 l 2809 2953 l 2812 2956 l 2080 2956 l 2077 2956 l 2077 2953 l 2077 2951 l 2080 2950 l CP 
-2837 3082 m 2812 3132 l 2787 3082 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 1843 3639 m 2812 3639 l 2809 3642 l 2809 3532 l 2810 3530 l 2812 3529 l 2814 3530 l 2815 3532 l 2815 3642 l 2814 3644 l 2812 3645 l 1843 3645 l 1841 3644 l 1840 3642 l 1841 3640 l 1843 3639 l CP 
-2787 3541 m 2812 3491 l 2837 3541 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 1185 939 m 1185 1138 l 1182 1135 l 1518 1135 l 1520 1135 l 1521 1138 l 1520 1140 l 1518 1141 l 1182 1141 l 1180 1140 l 1179 1138 l 1179 939 l 1180 936 l 1182 936 l 1184 936 l 1185 939 l CP 
-1510 1113 m 1560 1138 l 1510 1163 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 1185 939 m 1185 1563 l 1182 1560 l 1518 1560 l 1520 1560 l 1521 1563 l 1520 1565 l 1518 1566 l 1182 1566 l 1180 1565 l 1179 1563 l 1179 939 l 1180 936 l 1182 936 l 1184 936 l 1185 939 l CP 
-1510 1538 m 1560 1563 l 1510 1588 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 1185 939 m 1185 1988 l 1182 1985 l 1518 1985 l 1520 1985 l 1521 1988 l 1520 1990 l 1518 1991 l 1182 1991 l 1180 1990 l 1179 1988 l 1179 939 l 1180 936 l 1182 936 l 1184 936 l 1185 939 l CP 
-1510 1963 m 1560 1988 l 1510 2013 l CP 
-fill
-GSE
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 1185 939 m 1185 2413 l 1182 2410 l 1518 2410 l 1520 2410 l 1521 2413 l 1520 2415 l 1518 2416 l 1182 2416 l 1180 2415 l 1179 2413 l 1179 939 l 1180 936 l 1182 936 l 1184 936 l 1185 939 l CP 
-1510 2388 m 1560 2413 l 1510 2438 l CP 
-fill
-GSE
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 2045 4455 m 2012 4455 1985 4482 1985 4515 c 1985 4754 l 1985 4787 2012 4814 2045 4814 c 2681 4814 l 2714 4814 2741 4787 2741 4754 c 2741 4515 l 2741 4482 2714 4455 2681 4455 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 2066 4711 M (refimm)[81 93 69 59 162  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 1350 4341 m 1350 4635 l 1347 4631 l 1943 4631 l 1945 4632 l 1946 4635 l 1945 4637 l 1943 4638 l 1347 4638 l 1345 4637 l 1344 4635 l 1344 4341 l 1345 4339 l 1347 4338 l 1350 4339 l 1350 4341 l CP 
-1935 4610 m 1985 4635 l 1935 4660 l CP 
-fill
-GSE
-GpPBeg1
-1 setlinecap
-1 setlinejoin
-10 setmiterlimit
-6.25 setlinewidth
-[] 0 setdash
-0 0 0 SC
-NP 2045 4927 m 2012 4927 1985 4954 1985 4987 c 1985 5226 l 1985 5259 2012 5286 2045 5286 c 3296 5286 l 3329 5286 3356 5259 3356 5226 c 3356 4987 l 3356 4954 3329 4927 3296 4927 c CP 
-stroke
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-/DeviceRGB dup setcolorspace /colspABC exch def
-0 0 0 1 scol 2066 5182 M (refsomewhere)[81 93 69 81 105 162 92 139 117 92 82  0]xS 
-Pscript_WinNT_Compat begin /$x mysetup def end
-Pscript_WinNT_Incr dup /suspend get exec
-Pscript_WinNT_Compat dup /initialize get exec
-%%BeginDocument: Pscript_Win_PassThrough
-/languagelevel where {pop languagelevel} {1} ifelse
-2 ge dup {currentglobal exch true setglobal globaldict} {userdict} ifelse
-/GpPBeg1 {
-    gsave initclip
-    16 dict begin
-    /c {curveto} def /l {lineto} def /m {moveto} def
-    /rc {rcurveto} def /rl {rlineto} def
-    /NP {newpath} def /CP {closepath} def /SC {setrgbcolor} def
-    /GSE {end grestore} def
-} put
-{setglobal} if
-GpPBeg1
-0 0 0 SC
-NP 1350 4341 m 1350 5106 l 1347 5103 l 1943 5103 l 1945 5104 l 1946 5106 l 1945 5109 l 1943 5110 l 1347 5110 l 1345 5109 l 1344 5106 l 1344 4341 l 1345 4339 l 1347 4338 l 1350 4339 l 1350 4341 l CP 
-1935 5081 m 1985 5106 l 1935 5131 l CP 
-fill
-GSE
-
-%%EndDocument
-
-Pscript_WinNT_Compat dup /suspend get exec
-Pscript_WinNT_Incr dup /resume get exec
-LH
+%%IncludeResource: font Times-BoldItalic
+F /F0 0 /256 T /Times-BoldItalic mF 
+/F0SD0YFFFFFF30 F0 [208.008 0 0 -208 0 0 ] mFS
+F0SD0YFFFFFF30 Ji 
+204 359 M (v)S 
+296 359 M (a)S  400 359 M (r)S  
+50 Lw N 1033 3391 M 1000 3391 973 3418 973 3451 -c 973 3689 I 973 3722 1000 3749 1033 3749 -c 1670 3749 I 1703 3749 1729 3722 1729 3689 -c 1729 3451 I 1729 3418 1703 3391 1670 3391 -c C 
+: [ 0.125 0 0 0.125 0 0 ] concat K 
+; 1055 3647 M (a)S 
+1159 3647 M (d)S  1263 3647 M (d)S  1367 3647 M (r)S  1448 3647 M (o)S  1553 3647 M (f)S  
+100 Lw N 891 508 M 858 508 831 535 831 568 -c 831 807 I 831 840 858 867 891 867 -c 1245 867 I 1278 867 1304 840 1304 807 -c 1304 568 I 1304 535 1278 508 1245 508 -c C 
+: [ 0.063 0 0 0.063 0 0 ] concat K 
+; 913 765 M (u)S 
+1029 765 M (s)S  1110 765 M (r)S  
+50 Lw N 986 2702 M 953 2702 926 2729 926 2762 -c 926 3001 I 926 3034 953 3061 986 3061 -c 1906 3061 I 1939 3061 1966 3034 1966 3001 -c 1966 2762 I 1966 2729 1939 2702 1906 2702 -c C 
+: [ 0.125 0 0 0.125 0 0 ] concat K 
+; 1009 2958 M (g)S 
+1113 2958 M (e)S  1205 2958 M (n)S  1321 2958 M (e)S  1413 2958 M (r)S  1495 2958 M (a)S  1599 2958 M (t)S  1658 2958 M (e)S  1750 2958 M (d)S  
+25 Lw N 1080 3911 M 1047 3911 1020 3937 1020 3970 -c 1020 4209 I 1020 4242 1047 4269 1080 4269 -c 1386 4269 I 1419 4269 1446 4242 1446 4209 -c 1446 3970 I 1446 3937 1419 3911 1386 3911 -c C 
+: [ 0.25 0 0 0.25 0 0 ] concat K 
+; 1100 4167 M (r)S 
+1181 4167 M (e)S  1274 4167 M (f)S  
+N 1884 3911 M 1851 3911 1824 3937 1824 3970 -c 1824 4209 I 1824 4242 1851 4269 1884 4269 -c 2568 4269 I 2601 4269 2627 4242 2627 4209 -c 2627 3970 I 2627 3937 2601 3911 2568 3911 -c C 
+: [ 0.25 0 0 0.25 0 0 ] concat K 
+; 1906 4167 M (r)S 
+1987 4167 M (e)S  2080 4167 M (f)S  2149 4167 M (a)S  2253 4167 M (d)S  2357 4167 M (d)S  2461 4167 M (r)S  
+N 3065 3911 M 3032 3911 3005 3937 3005 3970 -c 3005 4209 I 3005 4242 3032 4269 3065 4269 -c 3607 4269 I 3640 4269 3667 4242 3667 4209 -c 3667 3970 I 3667 3937 3640 3911 3607 3911 -c C 
+: [ 0.25 0 0 0.25 0 0 ] concat K 
+; 3088 4167 M (r)S 
+3169 4167 M (e)S  3262 4167 M (f)S  3331 4167 M (b)S  3435 4167 M (i)S  3494 4167 M (t)S  
+50 Lw N 1506 2162 M 1473 2162 1446 2188 1446 2221 -c 1446 2460 I 1446 2493 1473 2520 1506 2520 -c 2473 2520 I 2506 2520 2532 2493 2532 2460 -c 2532 2221 I 2532 2188 2506 2162 2473 2162 -c C 
+: [ 0.125 0 0 0.125 0 0 ] concat K 
+; 1529 2418 M (c)S 
+1621 2418 M (o)S  1725 2418 M (m)S  1888 2418 M (p)S  1992 2418 M (o)S  2096 2418 M (u)S  2212 2418 M (n)S  2328 2418 M (d)S  
+N 1506 887 M 1473 887 1446 913 1446 946 -c 1446 1185 I 1446 1218 1473 1245 1506 1245 -c 2614 1245 I 2647 1245 2674 1218 2674 1185 -c 2674 946 I 2674 913 2647 887 2614 887 -c C 
+: [ 0.125 0 0 0.125 0 0 ] concat K 
+; 1529 1143 M (c)S 
+1621 1143 M (o)S  1725 1143 M (n)S  1841 1143 M (s)S  1922 1143 M (t)S  1980 1143 M (a)S  2084 1143 M (n)S  2200 1143 M (t)S  2258 1143 M (<)S  2377 1143 M (T)S  2505 1143 M (>)S  
+N 1506 1737 M 1473 1737 1446 1763 1446 1796 -c 1446 2035 I 1446 2068 1473 2095 1506 2095 -c 2852 2095 I 2885 2095 2912 2068 2912 2035 -c 2912 1796 I 2912 1763 2885 1737 2852 1737 -c C 
+: [ 0.125 0 0 0.125 0 0 ] concat K 
+; 1530 1993 M (e)S 
+1622 1993 M (n)S  1738 1993 M (u)S  1854 1993 M (m)S  2016 1993 M (_)S  2120 1993 M (m)S  2283 1993 M (e)S  2375 1993 M (m)S  2538 1993 M (b)S  2642 1993 M (e)S  2734 1993 M (r)S  
+N 1506 1312 M 1473 1312 1446 1338 1446 1371 -c 1446 1610 I 1446 1643 1473 1670 1506 1670 -c 2568 1670 I 2601 1670 2627 1643 2627 1610 -c 2627 1371 I 2627 1338 2601 1312 2568 1312 -c C 
+: [ 0.125 0 0 0.125 0 0 ] concat K 
+; 1529 1568 M (w)S 
+1668 1568 M (i)S  1726 1568 M (t)S  1784 1568 M (h)S  1900 1568 M (_)S  2004 1568 M (i)S  2062 1568 M (n)S  2178 1568 M (i)S  2236 1568 M (t)S  2294 1568 M (i)S  2352 1568 M (a)S  2456 1568 M (l)S  
+25 Lw N 1080 5442 M 1047 5442 1020 5469 1020 5502 -c 1020 5741 I 1020 5774 1047 5800 1080 5800 -c 1622 5800 I 1655 5800 1682 5774 1682 5741 -c 1682 5502 I 1682 5469 1655 5442 1622 5442 -c C 
+: [ 0.25 0 0 0.25 0 0 ] concat K 
+; 1102 5698 M (v)S 
+1194 5698 M (a)S  1298 5698 M (r)S  1379 5698 M (0)S  1483 5698 M (1)S  
+N 2073 5442 M 2040 5442 2013 5469 2013 5502 -c 2013 5741 I 2013 5774 2040 5800 2073 5800 -c 2615 5800 I 2647 5800 2674 5774 2674 5741 -c 2674 5502 I 2674 5469 2647 5442 2615 5442 -c C 
+: [ 0.25 0 0 0.25 0 0 ] concat K 
+; 2095 5698 M (l)S 
+2153 5698 M (o)S  2257 5698 M (g)S  2361 5698 M (0)S  2465 5698 M (1)S  
+50 Lw N 2309 3061 M 2276 3061 2249 3087 2249 3120 -c 2249 3359 I 2249 3392 2276 3419 2309 3419 -c 3087 3419 I 3120 3419 3147 3392 3147 3359 -c 3147 3120 I 3147 3087 3120 3061 3087 3061 -c C 
+: [ 0.125 0 0 0.125 0 0 ] concat K 
+; 2332 3317 M (g)S 
+2436 3317 M (e)S  2528 3317 M (n)S  2644 3317 M (a)S  2748 3317 M (d)S  2852 3317 M (d)S  2956 3317 M (r)S  
+2 Lj 0 Lc 16 Lw N 363 462 M 363 688 I 359 684 I 790 684 I 791 684 793 686 793 688 -c 793 689 791 691 790 691 -c 359 691 I 358 691 356 689 356 688 -c 356 462 I 356 460 358 458 359 458 -c 361 458 363 460 363 462 -c C 
+781 663 M 831 688 I 781 713 I C 
+:  L ; : [ 0.063 0 0 0.063 0 0 ] concat K 
+; 8 Lw N 363 462 M 363 2881 I 360 2878 I 885 2878 I 886 2878 888 2880 888 2881 -c 888 2883 886 2885 885 2885 -c 360 2885 I 358 2885 356 2883 356 2881 -c 356 462 I 356 460 358 458 360 458 -c 361 458 363 460 363 462 -c C 
+876 2856 M 926 2881 I 876 2906 I C 
+:  L ; : [ 0.125 0 0 0.125 0 0 ] concat K 
+; N 363 462 M 363 3570 I 360 3567 I 931 3567 I 933 3567 935 3568 935 3570 -c 935 3572 933 3573 931 3573 -c 360 3573 I 358 3573 356 3572 356 3570 -c 356 462 I 356 460 358 458 360 458 -c 361 458 363 460 363 462 -c C 
+923 3545 M 973 3570 I 923 3595 I C 
+:  L ; : [ 0.125 0 0 0.125 0 0 ] concat K 
+; 4 Lw N 363 462 M 363 4090 I 360 4087 I 978 4087 I 980 4087 982 4088 982 4090 -c 982 4092 980 4093 978 4093 -c 360 4093 I 358 4093 357 4092 357 4090 -c 357 462 I 357 460 358 459 360 459 -c 361 459 363 460 363 462 -c C 
+970 4065 M 1020 4090 I 970 4115 I C 
+:  L ; : [ 0.25 0 0 0.25 0 0 ] concat K 
+; N 363 462 M 363 5621 I 360 5618 I 978 5618 I 980 5618 982 5619 982 5621 -c 982 5623 980 5624 978 5624 -c 360 5624 I 358 5624 357 5623 357 5621 -c 357 462 I 357 460 358 459 360 459 -c 361 459 363 460 363 462 -c C 
+970 5596 M 1020 5621 I 970 5646 I C 
+:  L ; : [ 0.25 0 0 0.25 0 0 ] concat K 
+; N 1682 5618 M 1971 5618 I 1973 5618 1974 5619 1974 5621 -c 1974 5623 1973 5624 1971 5624 -c 1682 5624 I 1680 5624 1678 5623 1678 5621 -c 1678 5619 1680 5618 1682 5618 -c C 
+1963 5596 M 2013 5621 I 1963 5646 I C 
+:  L ; : [ 0.25 0 0 0.25 0 0 ] concat K 
+; N 2627 4087 M 2964 4087 I 2966 4087 2967 4088 2967 4090 -c 2967 4092 2966 4093 2964 4093 -c 2627 4093 I 2626 4093 2624 4092 2624 4090 -c 2624 4088 2626 4087 2627 4087 -c C 
+2955 4065 M 3005 4090 I 2955 4115 I C 
+:  L ; : [ 0.25 0 0 0.25 0 0 ] concat K 
+; N 1446 4087 M 1783 4087 I 1784 4087 1786 4088 1786 4090 -c 1786 4092 1784 4093 1783 4093 -c 1446 4093 I 1444 4093 1443 4092 1443 4090 -c 1443 4088 1444 4087 1446 4087 -c C 
+1774 4065 M 1824 4090 I 1774 4115 I C 
+:  L ; : [ 0.25 0 0 0.25 0 0 ] concat K 
+; 8 Lw N 1966 2878 M 2698 2878 I 2700 2878 2701 2880 2701 2881 -c 2701 3019 I 2701 3021 2700 3022 2698 3022 -c 2696 3022 2695 3021 2695 3019 -c 2695 2881 I 2698 2885 I 1966 2885 I 1964 2885 1963 2883 1963 2881 -c 1963 2880 1964 2878 1966 2878 -c C 
+2723 3011 M 2698 3061 I 2673 3011 I C 
+:  L ; : [ 0.125 0 0 0.125 0 0 ] concat K 
+; N 1729 3567 M 2698 3567 I 2695 3570 I 2695 3461 I 2695 3459 2696 3457 2698 3457 -c 2700 3457 2701 3459 2701 3461 -c 2701 3570 I 2701 3572 2700 3573 2698 3573 -c 1729 3573 I 1728 3573 1726 3572 1726 3570 -c 1726 3568 1728 3567 1729 3567 -c C 
+2673 3469 M 2698 3419 I 2723 3469 I C 
+:  L ; : [ 0.125 0 0 0.125 0 0 ] concat K 
+; 16 Lw N 1071 867 M 1071 1066 I 1068 1063 I 1404 1063 I 1406 1063 1407 1064 1407 1066 -c 1407 1067 1406 1069 1404 1069 -c 1068 1069 I 1066 1069 1065 1067 1065 1066 -c 1065 867 I 1065 865 1066 864 1068 864 -c 1070 864 1071 865 1071 867 -c C 
+1396 1041 M 1446 1066 I 1396 1091 I C 
+:  L ; : [ 0.063 0 0 0.063 0 0 ] concat K 
+; N 1071 867 M 1071 1491 I 1068 1488 I 1404 1488 I 1406 1488 1407 1489 1407 1491 -c 1407 1492 1406 1494 1404 1494 -c 1068 1494 I 1066 1494 1065 1492 1065 1491 -c 1065 867 I 1065 865 1066 864 1068 864 -c 1070 864 1071 865 1071 867 -c C 
+1396 1466 M 1446 1491 I 1396 1516 I C 
+:  L ; : [ 0.063 0 0 0.063 0 0 ] concat K 
+; N 1071 867 M 1071 1916 I 1068 1913 I 1404 1913 I 1406 1913 1407 1914 1407 1916 -c 1407 1917 1406 1919 1404 1919 -c 1068 1919 I 1066 1919 1065 1917 1065 1916 -c 1065 867 I 1065 865 1066 864 1068 864 -c 1070 864 1071 865 1071 867 -c C 
+1396 1891 M 1446 1916 I 1396 1941 I C 
+:  L ; : [ 0.063 0 0 0.063 0 0 ] concat K 
+; 8 Lw N 1071 867 M 1071 2341 I 1068 2338 I 1404 2338 I 1406 2338 1407 2339 1407 2341 -c 1407 2343 1406 2344 1404 2344 -c 1068 2344 I 1066 2344 1065 2343 1065 2341 -c 1065 867 I 1065 865 1066 864 1068 864 -c 1070 864 1071 865 1071 867 -c C 
+1396 2316 M 1446 2341 I 1396 2366 I C 
+:  L ; : [ 0.125 0 0 0.125 0 0 ] concat K 
+; 1 Lj 1 Lc 25 Lw N 1931 4384 M 1898 4384 1871 4410 1871 4443 -c 1871 4682 I 1871 4715 1898 4742 1931 4742 -c 2568 4742 I 2601 4742 2627 4715 2627 4682 -c 2627 4443 I 2627 4410 2601 4384 2568 4384 -c C 
+: [ 0.25 0 0 0.25 0 0 ] concat K 
+; 1953 4640 M (r)S 
+2034 4640 M (e)S  2127 4640 M (f)S  2196 4640 M (i)S  2255 4640 M (m)S  2417 4640 M (m)S  
+2 Lj 0 Lc 4 Lw N 1237 4269 M 1237 4563 I 1234 4560 I 1829 4560 I 1831 4560 1833 4561 1833 4563 -c 1833 4565 1831 4566 1829 4566 -c 1234 4566 I 1232 4566 1230 4565 1230 4563 -c 1230 4269 I 1230 4267 1232 4266 1234 4266 -c 1235 4266 1237 4267 1237 4269 -c C 
+1821 4538 M 1871 4563 I 1821 4588 I C 
+:  L ; : [ 0.25 0 0 0.25 0 0 ] concat K 
+; 1 Lj 1 Lc 25 Lw N 1931 4855 M 1898 4855 1871 4882 1871 4915 -c 1871 5154 I 1871 5187 1898 5214 1931 5214 -c 3182 5214 I 3215 5214 3242 5187 3242 5154 -c 3242 4915 I 3242 4882 3215 4855 3182 4855 -c C 
+: [ 0.25 0 0 0.25 0 0 ] concat K 
+; 1955 5111 M (r)S 
+2036 5111 M (e)S  2129 5111 M (f)S  2198 5111 M (s)S  2279 5111 M (o)S  2384 5111 M (m)S  2546 5111 M (e)S  2638 5111 M (w)S  2777 5111 M (h)S  2894 5111 M (e)S  2986 5111 M (r)S  3068 5111 M (e)S  
+2 Lj 0 Lc 4 Lw N 1237 4269 M 1237 5035 I 1234 5032 I 1829 5032 I 1831 5032 1833 5033 1833 5035 -c 1833 5036 1831 5038 1829 5038 -c 1234 5038 I 1232 5038 1230 5036 1230 5035 -c 1230 4269 I 1230 4267 1232 4266 1234 4266 -c 1235 4266 1237 4267 1237 4269 -c C 
+1821 5010 M 1871 5035 I 1821 5060 I C 
+:  L ; : [ 0.25 0 0 0.25 0 0 ] concat K 
+; LH
 %%PageTrailer
 
 %%Trailer
 %%DocumentNeededResources: 
-%%+ font TimesNewRomanPS-BoldItalicMT
+%%+ font Times-BoldItalic
 %%DocumentSuppliedResources: 
-%%+ procset Pscript_WinNT_ErrorHandler 5.0 0
+%%+ procset Pscript_WinNT_VMErrorHandler 5.0 0
 %%+ procset Pscript_FatalError 5.0 0
 %%+ procset Pscript_Win_Basic 5.0 0
-%%+ procset Pscript_Win_Utils_L2 5.0 0
-%%+ procset Pscript_WinNT_Compat 5.0 0
+%%+ procset Pscript_Win_Utils_L1 5.0 0
+%%+ procset Pscript_Win_GdiObject 5.0 0
+%%+ procset Pscript_Win_GdiObject_L1 5.0 0
 %%+ procset Pscript_Text 5.0 0
 %%+ procset Pscript_Encoding256 5.0 0
-%%+ procset Pscript_Win_Euro_L2 5.0 0
 Pscript_WinNT_Incr dup /terminate get exec
 %%EOF
