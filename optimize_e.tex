@@ -483,6 +483,7 @@ struct dag {  // Node of dag
   vector<dag*> m_parents;   // Parent
   dag* m_left;              // Left child
   dag* m_right;             // Right child
+  dag* m_extra;             // 3rd child for `x' of x[y] := z
   static vector<dag*> all;  // All list
   dag() : m_tac(0), m_left(0), m_right(0) { all.push_back(this); }
 };
@@ -554,8 +555,8 @@ in order.
 
 \item Evaluate the node whose identifier list is `{\tt{n, t0}}'.
       Find identifer $x$ from identifier list, where {\tt{node[$x$]}} is equal
-      to this node and $x$ is alive in an exit of basic block
-      (2nd condition is optinal). Here we chose `{\tt{n}}'.
+      to this node and $x$ is alive in an exit of basic block.
+      Here we chose `{\tt{n}}'.
       And generate code {\tt{n := n + 1}}.
  
 \item For the other element of identifier list, if the identifier
@@ -628,7 +629,10 @@ Get node $n$ like bellow.
       \item type of {\tt{x}} is {\it compatible} with that of {\tt{z'}}.
       \end{itemize}
       If exists, let its right child to be $n$.
-\item If there is not such a node, create new node and let it to be $n$.
+\item \label{optimize_e064}
+If there is not such a node, create new node and let it to be $n$.
+For {\tt{x[y] := z}}, if {\tt{node[x]}} already exists, let {\tt{node[x]}}
+to be 3rd child of $n$.
 \end{enumerate}
 \item \label{optimize_e112}
       If this 3 address code is {\tt{call3ac} or {\tt{invladdr3ac}}},
@@ -666,15 +670,6 @@ For each node of {\tt{dag::all}}, apply bellow procedure which returns
 \item If the label of the node is none, call bellow procedure
       {\bf Assignment judge algorithm} and return it.
 
-\item \label{optimize_e108}
-      If the label is {\tt{x[y] := z}} and the node has a parent or
-      parents, for `{\tt{x}}', copy all {\tt{x[y'] := z'}} to
-      the container  for optimization result
-      which are not copied and remembered in \ref{optimize_e064}.
-\item If the label is {\tt{alloc}} and the parent is {\tt{dealloc}},
-      return 0.
-\item If the label is {\tt{dealloc}} and for left child $\ell$,
-      if {\tt{result[$\ell$] = 0}}, return 0.
 \item \label{optimize_e048}
       Let {\tt{x := y $op$ z}} denote the label.
       For the left child $\ell$, replace `{\tt{y}}' with
@@ -695,7 +690,7 @@ For each node of {\tt{dag::all}}, apply bellow procedure which returns
 \item If `{\tt{x}}' is alive in an exit of this basic block,
       return `{\tt{x}}'.
 \item If `{\tt{x}}' is used before it is defined
-      in this basic block, and  {\tt{node[x]}} is equal to
+      in this basic block, and {\tt{node[x]}} is equal to
       the current {\tt{dag}}, return `{\tt{x}}'.
 \item For `{\tt{x}}', if there exists a 3 address code {\tt{p := \&x}} in this
       basic block, return `{\tt{x}}'.
@@ -704,14 +699,18 @@ For each node of {\tt{dag::all}}, apply bellow procedure which returns
       {\tt{x := call y}} and `{\tt{x}}' is used before it is
       defined, change it {\tt{call y}} and return {\tt{0}}.
 \item If a 3 address code copied at \ref{optimize_e050} is
-      {\tt{alloc x, y}}, return {\tt{x}}.
+      {\tt{alloca x, y}}, return {\tt{x}}.
+\item If a 3 address code copied at \ref{optimize_e050} is
+      {\tt{x[y] := z}} and there exists one like bellow
+      at identifier list of {\tt{node[x]}}:
+      \begin{enumerate}
+      \item Alive in an exit of this this basic block
+      \item Used before defined at this basic block
+      \end{enumerate}
+      then, return {\tt{x}}.
 \item \label{optimize_e056}
       Erase a 3 address code copied at \ref{optimize_e050} 
       from the container for optimization result.
-\item \label{optimize_e064}
-      If the 3 address code copied at \ref{optimize_e050} is
-      {\tt{x[y] := z}}, remember this 3 address code and the
-      container size. return {\tt{0}}.
 \item return {\tt{0}}.
 \end{enumerate}
 \end{quote}
@@ -724,37 +723,38 @@ For each node of {\tt{dag::all}}, apply bellow procedure which returns
       return {\tt{0}}.
 \item  \label{optimize_e067}
       If the condition of
-      {\bf Assignment judge algorithm (Special case 1) }
+      {\bf Assignment judge algorithm (Special case) }
       described bellow holds true, return the result.
 \item \label{optimize_e055}
       If this node is leaf, 
       let the 1st elemnt of the identifier list to be `{\tt{y}}'.
+\item If the label is {\tt{loff}} of this node,
+      let the 1st elemnt of the identifier list to be `{\tt{y}}'.
 \item \label{optimize_e054}
-      Otherwise, i.e. if this node is not leaf,
-      find from {\tt{m\_vars}} the identifier `{\tt{y}}', where
-      {\tt{node[y]}} is equal to this node. If exists, find the
-      identifier from `{\tt{y}}' which is alive in an exit of this
-      basic block. If exists, and let denote it `{\tt{y}}', 
-      if {\tt{node[y]}} is equal to this node, make `{\tt{y'}}' to be
-      `{\tt{y}}' newly. If not, i.e. no identifier is found, find
-      the identifier from `{\tt{y}}' which is used before it is defined. 
-      If exists, newly make it to be `{\tt{y}}' and apply
-      {\bf Assignment judge algorithm (Special case 2)} for 1st element
-      `{\tt{x}}' of {\tt{m\_vars}} and `{\tt{y}}'.
-
-      If there exists `{\tt{y}}' mentioned above, and `{\tt{y}}' is
-      not 1st element of {\tt{m\_vars}},
-      apply {\bf Assignment judge algorithm (Special case 2)}
-      for 1st element `{\tt{x}}' and  `{\tt{y}}'.
-
-      If not, let the 1st element of the identifier list to be `{\tt{y}}'.
+      Otherwise,
+      find from the identifier list in the order described bellow:
+      \begin{enumerate}
+      \item Alive in an exit of this this basic block
+      \item Used before defined at this basic block
+      \item `{\tt{y}}' where {\tt{node[y]}} is equal to this node
+      \item Address is referenced at this basic block
+      \end{enumerate}
+      If not exists, let the 1st elemnt of the identifier list to be `{\tt{y}}'.
  \item 
       For each element `{\tt{x}}' of identfier list which follows `{\tt{y}}',
       apply bellow.
 \begin{enumerate}
+\item If label of this node is {\tt{loff}},  generate {\tt{x := y}}.
 \item \label{optimize_e052}
       If the label of parent of this node is a 3 address code
       {\tt{p := \&x}} and this node is leaf, generate {\tt{x := y}}.
+\item If there exists parent `{\tt{p}}' of this node which satisfies
+      bellow condition, generate {\tt{x := y}}:
+      \begin{enumerate}
+      \item label of `{\tt{p}}' is {\tt{loff}}
+      \item `{\tt{p}}' has 3rd child.
+      \item `{\tt{x}}' exists in identifier list of 3rd child of `{\tt{p}}'
+      \end{enumerate}
 \item If {\tt{node[x]}} is not equal to this node, 
       not generate assignment.
 \item \label{optimize_e053} 
@@ -775,7 +775,7 @@ If the contition of \ref{optimize_e052} holds true,
 \end{quote}
 
 \begin{quote}
-{\bf Assignment judge algorithm (Special case 1) }
+{\bf Assignment judge algorithm (Special case) }
 \begin{enumerate}
 \item \label{optimize_e072}
       Find from {\tt{m\_vars}} the identifier `{\tt{t}}' where
@@ -788,22 +788,6 @@ If the contition of \ref{optimize_e052} holds true,
       generate {\tt{t := x}}.
 
 \item Return `{\tt{t}}'.
-\end{enumerate}
-\end{quote}
-
-\begin{quote}
-{\bf Assignment judge algorithm (Special case 2) }
-\begin{enumerate}
-\item \label{optimize_e107}
-      For the 1st element `{\tt{x}}' and foud {\tt{y}}
-      at \ref{optimize_e054},
-      find {\tt{x[y'] := z'}} from remembered that at \ref{optimize_e064}
-      of {\bf Code generation algorithm from {\em dag}}.
-      If not, termiante this procedure.
-
-\item Replace {\tt{x[y'] := z'}} with {\tt{y[y'] := z'}} 
-      and copy them into the previous point of the last of
-      the container for optimization result.
 \end{enumerate}
 \end{quote}
 
@@ -1692,7 +1676,8 @@ Figure \ref{optimize_e032} shows {\em dag} for these 3 address codes.
 \includegraphics[width=0.859\linewidth,height=1.0\linewidth]{opt016.png}
 \end{htmlonly}
 \begin{latexonly}
-\includegraphics[width=0.859\linewidth,height=1.0\linewidth]{opt016.eps}
+%\includegraphics[width=0.859\linewidth,height=1.0\linewidth]{opt016.eps}
+\includegraphics[width=1.0\linewidth,height=1.2\linewidth]{opt016.eps}
 \end{latexonly}
 \caption{{\em dag} of example \ref{optimize_e031}}
 \label{optimize_e032}
@@ -1701,9 +1686,10 @@ Figure \ref{optimize_e032} shows {\em dag} for these 3 address codes.
 Function `{\tt{f}}' is consist of one basic block, and 
 `{\tt{g, "abc", 0, 1, 2, 3, 'a', 'b', 'c', '\verb|\|0'}}'
 are alive in an exit of this basic block.
-Here, think about nodes whose label is {\tt{loff}}.
+Here, think about nodes whose label is {\tt{loff}} except for 1st one.
+They have 3rd child.
 `{\tt{s}}' is not alive in an exit of this basic block,
-this 3 address code can be omitted if it isn't {\tt{loff}}.
+this 3 address code may be omitted if they don't have 3rd child.
 But function `{\tt{g}}' call argument is address of `{\tt{s}}'
 and we can easyly know that they cannot be omitted.
 At \ref{optimize_e064} of {\bf Code generation algorithm from {\em dag}},
@@ -1952,7 +1938,8 @@ Figure \ref{optimize_e074} shows {\em dag} for these 3 address codes.
 \includegraphics[width=1.0\linewidth,height=0.439\linewidth]{opt030.png}
 \end{htmlonly}
 \begin{latexonly}
-\includegraphics[width=1.0\linewidth,height=0.439\linewidth]{opt030.eps}
+%\includegraphics[width=1.0\linewidth,height=0.439\linewidth]{opt030.eps}
+\includegraphics[width=1.2\linewidth,height=1.0\linewidth]{opt030.eps}
 \end{latexonly}
 \caption{{\em dag} of example \ref{optimize_e073}}
 \label{optimize_e074}
@@ -1961,17 +1948,16 @@ Figure \ref{optimize_e074} shows {\em dag} for these 3 address codes.
 Function `{\tt{f}}' is consist of one basic block, and 
 `{\tt{g, 0, 1, 2, 4}}' are alive in an exit of this basic block.
 Because `{\tt{y}}' is not alive in an exit of this basic block,
-code isn't generated for the node whose label is {\tt{y[0] := 1}}. 
-But for the node whose identifier list is `{\tt{y, t0, x, t1}}',
-before generating {\tt{y[4] := 2}},
-{\tt{y[0] := 1}} is generated at \ref{optimize_e108} of
-{\bf Code generation algorithm from {\em dag}}.
-After appling algorithms of this section,
+it's necessary to have parent of the node whose label is {\tt{y[0] := 1}}
+for generating code.
 3 address codes become like bellow.
 \begin{verbatim}
 f:
   y[0] := 1
   y[4] := 2
+    t0 := y  # Canbe erased.
+     x := y  # But this algorithm cannot erase
+    t1 := y  # at present state.
   param y
   call g
 \end{verbatim}
@@ -2197,7 +2183,7 @@ applying {\bf Creation {\em dag} of basic block algorithm} an
 extern int a[];
 void f(int i, int j){ int x = a[i]; a[i] = a[j]; a[j] =	x; }
 \end{verbatim}
-Assume that sizeof(int) = 4, 3 address codes become like bellow.
+3 address codes become like bellow.
 \begin{verbatim}
 f:
     t0 := i << 2
@@ -2218,7 +2204,8 @@ Figure \ref{optimize_e076} shows {\em dag} for these 3 address codes.
 \includegraphics[width=1.0\linewidth,height=1.069\linewidth]{opt031.png}
 \end{htmlonly}
 \begin{latexonly}
-\includegraphics[width=1.0\linewidth,height=1.069\linewidth]{opt031.eps}
+%\includegraphics[width=1.0\linewidth,height=1.069\linewidth]{opt031.eps}
+\includegraphics[width=1.0\linewidth,height=1.4\linewidth]{opt031.eps}
 \end{latexonly}
 \caption{{\em dag} of example \ref{optimize_e075}}
 \label{optimize_e076}
@@ -2348,7 +2335,7 @@ sizeof(double) = 8, 3 address codes become like bellow.
 f:
   t0 := n
   t1 := t0 << 3
-  alloc a, t1
+  alloca a, t1
   param 1.0
   call g
   t2 := j << 3
@@ -2358,7 +2345,6 @@ f:
   t5 := a[t4]
   param t5
   call g
-  dealloc a, t1
 \end{verbatim}
 Figure \ref{optimize_e090} shows {\em dag} for these 3 address codes.
 \begin{figure}[htbp]
@@ -2367,7 +2353,8 @@ Figure \ref{optimize_e090} shows {\em dag} for these 3 address codes.
 \includegraphics[width=0.392\linewidth,height=0.5\linewidth]{opt038.png}
 \end{htmlonly}
 \begin{latexonly}
-\includegraphics[width=0.928\linewidth,height=1.0\linewidth]{opt038.eps}
+%%\includegraphics[width=0.928\linewidth,height=1.0\linewidth]{opt038.eps}
+\includegraphics[width=1.2\linewidth,height=1.0\linewidth]{opt038.eps}
 \end{latexonly}
 \caption{{\em dag} of example \ref{optimize_e089}}
 \label{optimize_e090}
@@ -2435,22 +2422,19 @@ alive in an exit of this basic block.
 
 For the node whose label is {\tt{s[0] := t0}} in
 the uppper {\em dag} of figure \ref{optimize_e090},
-no code is generated at
-{\bf Code generation algorithm from {\em dag}},
-but this 3 address code is remembered at \ref{optimize_e064}.
-
-For the node whose label is {\tt{s[4] := t2}} in
-the lower {\em dag} in figure \ref{optimize_e090}, remembered 3 address code
-is also generated at \ref{optimize_e108}
-of {\bf Code generation algorithm from {\em dag}}.
+consider the situation appling
+{\bf Code generation algorithm from {\em dag}}.
+`{\tt{s}}' is not alive in an exit of this basic block,
+`{\tt{s}}' is used (before defined) after calling `{\tt{g}}'
+at the node whose label is {\tt{s[4] := t2}}.
 
 After appling algorithms of this section,
 3 address codes become like bellow.
 \begin{verbatim}
 f:
+  s[0] := n
   param n
   t2 := call g
-  s[0] := n
   s[4] := t2
   return t3
 \end{verbatim}
@@ -2472,9 +2456,9 @@ f:
   t0 := .comp0
   goto label1
   label0:
-  .comp3[0] := 7
-  .comp3[4] := 8
-  t0 := .comp3
+  .comp1[0] := 7
+  .comp1[4] := 8
+  t0 := .comp1
   label1:
   return t0
 \end{verbatim}
@@ -2485,37 +2469,29 @@ Figure \ref{optimize_e093} shows {\em dag} for these 3 address codes.
 \includegraphics[width=0.857\linewidth,height=1.0\linewidth]{opt040.png}
 \end{htmlonly}
 \begin{latexonly}
-\includegraphics[width=0.857\linewidth,height=1.0\linewidth]{opt040.eps}
+%\includegraphics[width=0.857\linewidth,height=1.0\linewidth]{opt040.eps}
+\includegraphics[width=1.0\linewidth,height=1.4\linewidth]{opt040.eps}
 \end{latexonly}
 \caption{{\em dag} of example \ref{optimize_e092}}
 \label{optimize_e093}
 \end{center}
 \end{figure}
-Function `{\tt{f}}' is consist of two basic blocks.
+Function `{\tt{f}}' is consist of 4 basic blocks.
 `{\tt{t0}}' is
 alive in an exit of 2nd and 3rd basic block.
-Consider about 2nd basic block.
-For the node whose label is {\tt{.comp0[0] := 1}},
-no code is generated because {\tt{.comp0}} is not alive
-in an exit of this basic block, but it is remembered 
-at \ref{optimize_e064} of
-{\bf Code generation algorithm from {\em dag}}.
-For the node whose identifier list is `{\tt{.comp0, t0}}',
-because `{\tt{t0}}' is alive in an exist of this basic block,
-this is in the case of {\bf Assignment judge algorithm (Special case 2)}.
-i.e. 3 address code {\tt{.comp0[0] := 1}} which is not generated
-but is remembered is converted to {\tt{t0[0] := 1}}.
 After appling algorithms of this section,
 3 address codes become like bellow.
 \begin{verbatim}
 f:
   if x == 0 goto label0
-  t0[0] := 1
-  t0[4] := 2
+  .comp0[0] := 1
+  .comp0[4] := 2
+  t0 := .comp0
   goto label1
 label0:
-  t0[0] := 7
-  t0[4] := 8
+  .comp1[0] := 7
+  .comp1[4] := 8
+  t0 := .comp1
 label1:
   return t0
 \end{verbatim}
@@ -2800,8 +2776,7 @@ void f(char *fmt, ...)
 3 address codes become like bellow.
 \begin{verbatim}
 f:
-  ap := &fmt
-  ap := ap + 4
+  ap := va_start fmt
   t0 := fmt
   p := t0
   t1 := va_arg ap ,int
@@ -2820,7 +2795,8 @@ Figure \ref{optimize_e106} shows {\em dag} for these 3 address codes.
 \includegraphics[width=0.546\linewidth,height=1.2\linewidth]{opt046.png}
 \end{htmlonly}
 \begin{latexonly}
-\includegraphics[width=0.546\linewidth,height=1.2\linewidth]{opt046.eps}
+%%\includegraphics[width=0.546\linewidth,height=1.2\linewidth]{opt046.eps}
+\includegraphics[width=1.0\linewidth,height=1.2\linewidth]{opt046.eps}
 \end{latexonly}
 \caption{{\em dag} of example \ref{optimize_e105}}
 \label{optimize_e106}
@@ -2829,17 +2805,15 @@ Figure \ref{optimize_e106} shows {\em dag} for these 3 address codes.
 Function `{\tt{f}}' is consist of one basic block. Consider about
 the upper {\em dag} of figure \ref{optimize_e106}.
 For the node whose identifier list is `{\tt{fmt, t0, p}}',
-chose `{\tt{fmt}}' because the parent of this node has 
-{\tt{ap = \&fmt}} label, even thogh `{\tt{fmt}}' is not alive
-in this basic block at {\bf Assignment judge algorithm}.
+chose `{\tt{fmt}}' because this node is leaf
+at {\bf Assignment judge algorithm}.
 And, {\tt{p := fmt}} is generated becase `{\tt{p}}' is used later.
 After appling algorithms of this section,
 3 address codes become like bellow.
 \begin{verbatim}
 f:
   p := fmt
-  ap := &fmt
-  ap := ap + 4
+  ap := va_start fmt
   t1 := va_arg ap ,int
   param t1
   call g
