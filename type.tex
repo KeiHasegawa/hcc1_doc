@@ -19,12 +19,12 @@ void (*signal(int, void (*)(int)))(int);
 \hspace{0.5cm}
 \begin{figure}[htbp]
 \begin{center}
-\begin{latexonly}
+%%\begin{latexonly}
 \includegraphics[width=0.5\linewidth,height=0.5\linewidth]{type_expr.eps}
-\end{latexonly}
-\begin{htmlonly}
-\includegraphics{type_expr.png}
-\end{htmlonly}
+%%\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics{type_expr.png}
+%%\end{htmlonly}
 \caption{signal の型式の表現}
 \label{type006}
 \end{center}
@@ -42,12 +42,12 @@ void (*signal(int, void (*)(int)))(int);
 宣言 {\tt{signal}} の型に対する {\em dag} を示します.
 \begin{figure}[htbp]
 \begin{center}
-\begin{latexonly}
+%%\begin{latexonly}
 \includegraphics[width=0.5\linewidth,height=0.5\linewidth]{dag.eps}
-\end{latexonly}
-\begin{htmlonly}
-\includegraphics[width=0.3\linewidth,height=0.3\linewidth]{dag.png}
-\end{htmlonly} 
+%%\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.3\linewidth,height=0.3\linewidth]{dag.png}
+%%\end{htmlonly} 
 \caption{{\tt{signal}} の型の {\em dag} 表現}
 \label{type000}
 \end{center}
@@ -78,9 +78,9 @@ public:
 \index{きほんかた@基本型}
 C 言語の基本型との内部表現を以下に示します.
 
-\begin{latexonly}
+%%\begin{latexonly}
 \vspace{0.5cm}
-\end{latexonly}
+%%\end{latexonly}
 
 \begin{tabular}{|l|l|} \hline
 C プログラムでの表記 & フロントエンド内部表現 \\ \hline
@@ -101,9 +101,9 @@ C プログラムでの表記 & フロントエンド内部表現 \\ \hline
 {\tt{long double}} & {\tt{long\_double\_type}} \\ \hline
 \end{tabular}
 
-\begin{latexonly}
+%%\begin{latexonly}
 \vspace{0.5cm}
-\end{latexonly}
+%%\end{latexonly}
 
 例えば, {\tt{int\_type}} は以下のようなクラスとして表現できます.
 \begin{verbatim}
@@ -241,24 +241,24 @@ const A a;
 となります. 
 \begin{figure}[htbp]
 \begin{center}
-\begin{latexonly}
+%%\begin{latexonly}
 \includegraphics[width=0.4\linewidth,height=0.5\linewidth]{correct_array.eps}
-\end{latexonly}
-\begin{htmlonly}
-\includegraphics{correct_array.png}
-\end{htmlonly}
+%%\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics{correct_array.png}
+%%\end{htmlonly}
 \caption{正しい {\tt{a}} の型式}
 \label{type007}
 \end{center}
 \end{figure}
 \begin{figure}[htbp]
 \begin{center}
-\begin{latexonly}
+%%\begin{latexonly}
 \includegraphics[width=0.4\linewidth,height=0.5\linewidth]{incorrect_array.eps}
-\end{latexonly}
-\begin{htmlonly}
-\includegraphics{incorrect_array.png}
-\end{htmlonly}
+%%\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics{incorrect_array.png}
+%%\end{htmlonly}
 \caption{誤った {\tt{a}} の型式}
 \label{type008}
 \end{center}
@@ -315,12 +315,12 @@ extern int printf(const char* fmt, ...);
 の型式は図 \ref{type009} のようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{latexonly}
+%%\begin{latexonly}
 \includegraphics[width=0.5\linewidth,height=0.5\linewidth]{ellipsis_type.eps}
-\end{latexonly}
-\begin{htmlonly}
-\includegraphics{ellipsis_type.png}
-\end{htmlonly}
+%%\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics{ellipsis_type.png}
+%%\end{htmlonly}
 \caption{printf の型式の表現}
 \label{type009}
 \end{center}

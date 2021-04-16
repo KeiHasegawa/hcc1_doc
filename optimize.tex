@@ -118,12 +118,12 @@ f:
 これを基本ブロックに分割すると図 \ref{optimize000} のようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.8\linewidth,height=1.436\linewidth]{basic_block.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.8\linewidth,height=1.436\linewidth]{basic_block.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.8\linewidth,height=1.436\linewidth]{basic_block.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{基本ブロックへの分割}
 \label{optimize000}
 \end{center}
@@ -136,7 +136,7 @@ f:
 \begin{quote}
 ただし, 中間コード生成アルゴリズムや
 コード最適化アルゴリズムが, いくつもかのブロックを通して同じ一時変数を
-使用するとあれば, それらも生きていると仮定しなければならない. そのような
+使用することがあれば, それらも生きていると仮定しなければならない. そのような
 一時変数には特別の印をつけておいて, 両者生死を区別するのがよい.
 \end{quote}
 と書かれています. ここで, \ref{expr000} 章で述べた式に対する
@@ -162,12 +162,12 @@ label2
 図 \ref{optimize001} のようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.89\linewidth,height=1.0\linewidth]{beyond_medium.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.89\linewidth,height=1.0\linewidth]{beyond_medium.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.89\linewidth,height=1.0\linewidth]{beyond_medium.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{基本ブロックを超えて生きている中間変数}
 \label{optimize001}
 \end{center}
@@ -275,12 +275,12 @@ label3:                       t21 := a[t20]
 基本ブロックへ分割すると図 \ref{optimize002} のようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.01\linewidth,height=1.75\linewidth]{quicksort.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.01\linewidth,height=1.75\linewidth]{quicksort.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=1.01\linewidth,height=1.75\linewidth]{quicksort.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{{\tt{quicksort}} の基本ブロック}
 \label{optimize002}
 \end{center}
@@ -474,10 +474,11 @@ struct dag {  // dag の節点
   tac* m_tac;             // 対応する 3 番地コード. 節点のラベル
   vector<var*> m_vars;      // 計算している変数. 識別子並び
   vector<dag*> m_parents;   // 親
-  dag* m_left;              // 左の子
-  dag* m_right;             // 右の子
+  dag*         m_left;      // 左の子 x := y op z の y
+  dag*         m_right;     // 右の子 x := y op z の z
+  dag*         m_extra;     // 3 番目の子 x[y] := z における x
   static vector<dag*> all;  // すべてのリスト
-  dag() : m_tac(0), m_left(0), m_right(0) { all.push_back(this); }
+  dag() : m_tac(0), m_left(0), m_right(0), m_extra(0) { all.push_back(this); }
 };
 
 map<var*, dag*> node;  // 変数から節点へのテーブル
@@ -501,12 +502,12 @@ f:
 示しました.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.5\linewidth,height=1.01\linewidth]{opt000.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.5\linewidth,height=1.01\linewidth]{opt000.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.5\linewidth,height=1.01\linewidth]{opt000.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize006} の {\em dag}}
 \label{optimize005}
 \end{center}
@@ -549,8 +550,7 @@ f:
       識別子並び {\tt{n, t0}} を順番に調べ, {\tt{node}}
       の値がこの節点であるもので 
       この基本ブロックの
-      出口で生きている変数を選びます( 2 つ目の条件は
-      オプショナル). 
+      出口で生きている変数を選びます. 
       ここでは {\tt{n}} が選択されます.
       この識別子に対してコード生成を行ない {\tt{n := n + 1}} を出力します.
 
@@ -601,7 +601,7 @@ f:
 \item 3 番地コード {\tt{x := y[z]}}, {\tt{x := *y}}  の
       場合は {\tt{x}} の型が {\it
       compatible} でなくてはならないとします.
-\item 3 番地コード {\tt{x[y] := z}}, {\tt{alloc x, y}} の場合
+\item 3 番地コード {\tt{x[y] := z}}, {\tt{alloca x, y}} の場合
       は {\tt{x}} も等しくなくてはならないとします.
 \item 3 番地コード {\tt{x := (type)y}} の場合は {\tt{type}} が
      {\it compatible} でなくてはならないとします.
@@ -613,12 +613,14 @@ f:
       \begin{itemize}
       \item 節点のラベルが {\tt{x'[y'] := z'}} である.
       \item {\tt{node[y]}} とその節点が一致している.
-      \item {\tt{node[z]}} とその点の左の子が一致している.
+      \item {\tt{node[z]}} とその節点の左の子が一致している.
       \item {\tt{x}} の型と {\tt{z'}} の型が {\it compatible} である.
       \end{itemize}
       もしあればその右の子を $n$ とします.
-\item やはりそのような節点がなければ
-      新しい節点を作成し, それを $n$ とします.
+\item \label{optimize064}
+そのような節点がなければ
+      新しい節点を作成し, それを $n$ とします. {\tt{x[y] := z}} に対して,
+      {\tt{node[x]}} があるのならば $n$ の 3 番目の子とします.
 \end{enumerate}
 \item \label{optimize112}
       3 番地コードが {\tt{call3ac}, {\tt{invladdr3ac}}} ならば
@@ -655,23 +657,13 @@ f:
 \begin{enumerate}
 \item 節点のラベルがないのならば以下の{\bf 代入判定アルゴリズム}の戻り値
       を返し, この手続きを終了します.
-\item \label{optimize108}
-節点のラベルが {\tt{x[y] := z}} で, 節点に親がいるのならば,
-      この
-      {\tt{x}} に対して後述する手順 \ref{optimize064} で生成を省略された
-      すべての {\tt{x[y'] := z'}} を省略した位置に出力します.
-\item 節点のラベルが {\tt{alloc}} で, この節点の親が {\tt{dealloc}}
-      ならば 0 を返し, この手続きを終了します.
-\item 節点のラベルが {\tt{dealloc}} で, 左の子 $\ell$ に対し
-      {\tt{result[$\ell$] = 0}} ならば 0 を返し, この手続きを終了します.
+
 \item \label{optimize048}
       節点のラベルを {\tt{x := y $op$ z}} とするとき
-      左の子 $\ell$ に対して, {\tt{result[$\ell$]}} で {\tt{y}}
-      を置き換えます.
+      左の子 $\ell$ に対して, {\tt{result[$\ell$]}} で {\tt{y}} を置き換えます.
 \item \label{optimize049}
       節点のラベルを {\tt{x := y $op$ z}} とするとき
-      右の子 $r$ に対して, {\tt{result[$r$]}} で {\tt{z}}
-      を置き換えます.
+      右の子 $r$ に対して, {\tt{result[$r$]}} で {\tt{z}} を置き換えます.
 \item \label{optimize050}
       3 番地コード {\tt{x := y $op$ z}} を変換先の 3 番地コードコンテナ
       {\tt vector<tac*> conv} にコピーします. ここで {\tt{y}}, {\tt{z}}
@@ -684,7 +676,7 @@ f:
       {\tt{x}} を返し, この手続きを終了します.
 \item {\tt{x}} がこの基本ブロックの出口で生きているのならば
       {\tt{x}} を返し, この手続きを終了します.
-\item {\tt{x}} がこの後, この基本ブロックで定義される前に仕様され,
+\item {\tt{x}} がこの後, この基本ブロックで定義される前に使用され,
       かつ {\tt{node[x]}} が現在の節点と一致しているのならば
       {\tt{x}} を返し, この手続きを終了します.
 \item {\tt{x}} がこの基本ブロックの 3 番地コードで {\tt{p := \&x}} のよ
@@ -696,15 +688,18 @@ f:
       ないのならば {\tt{call y}} に変更します.
       {\tt{0}} を返し, この手続きを終了します.
 \item 手順 \ref{optimize050} でコピーした 3 番地コードが
-      {\tt{alloc x, y}} ならば
+      {\tt{alloca x, y}} ならば
       {\tt{x}} を返し, この手続きを終了します.
+\item 手順 \ref{optimize050} でコピーした 3 番地コードが {\tt{x[y] := z}} な
+      らば {\tt{x}} の節点の識別子並びに
+      \begin{enumerate}
+      \item この基本ブロックの出口で生きているものがある
+      \item この後この基本ブロックで定義される前に使用されるものがある
+      \end{enumerate}
+      ならば {\tt{x}} を返し, この手続きを終了します.
 \item \label{optimize056}
       手順 \ref{optimize050} でコピーした 3 番地コードを
       コンテナ {\tt{conv}} から削除します.
-\item \label{optimize064}
-      手順 \ref{optimize050} でコピーした 3 番地コードが
-      {\tt{x[y] := z}} ならばこの 3 番地コードと
-      この 3 番地コードが省略された位置を記録しておきます.
 \item {\tt{0}} を返し, この手続きを終了します.
 \end{enumerate}
 \end{quote}
@@ -716,44 +711,42 @@ f:
 \item 節点の識別子並び {\tt{m\_vars}} が空ならば 0 を返し, この手続きを
       終了します.
 \item  \label{optimize067}
-      以下の {\bf 代入判定アルゴリズムにおける特別な場合(その 1)} に該当す
-      るかを調べます.
-      該当すればその戻り値を返し, この手続を終了します.
+      以下の{\bf 代入判定アルゴリズムにおける特別な場合}に該当す
+      るかを調べます. 該当すればその戻り値を返し, この手続を終了します.
 \item \label{optimize055}
       この節点が葉ならば識別子並び {\tt{m\_vars}} の先頭を
       {\tt{y}} とします.
+\item この節点のラベルが {\tt{loff}} ならば {\tt{m\_vars}} の先頭を
+      {\tt{y}} とします.
 \item \label{optimize054}
-      この節点が葉でなければ
-      識別子並びから順に, {\tt{node[y]}} がこの節点であるような {\tt{y}}
-      を検索します.
-      もしそのような {\tt{y}} があれば, さらにこの基本ブロックの出口で生き
-      ていているものを {\tt{y}} を先頭に検索します. もしあれば, それを
-      {\tt{y'}} とするとき {\tt{node[y']}} がこの節点である場合
-      改めて {\tt{y'}} を {\tt{y}} とします.
-      もしなければ, すなわち, 基本ブロックの出口で生きているものがなければ,
-      このあと定義の前に使用があるものを {\tt{y}} を先頭に検索します.
-      もしあれば, それを改めて {\tt{y}} とし, さらに  
-      識別子並びの先頭 {\tt{x}} と {\tt{y}} に対
-      して以下
-      の {\bf 代入判定アルゴリズムにおける特別な場合(その 2)} を適用します.
-
-      もし, 上記のような {\tt{y}} があり, なおかつ {\tt{y}} が
-      識別子並びの先頭 {\tt{x}} ではないのであれば
-      {\tt{x}} と {\tt{y}} に対
-      して以下
-      の {\bf 代入判定アルゴリズムにおける特別な場合(その 2)} を適用します.
-
-      もし上記のような {\tt{y}} がないのであれば
+      この節点が葉でなければ識別子並びから以下の手順で 1 つを選択し, 
+      それを {\tt{y}} とします.
+      \begin{enumerate}
+      \item 現在の基本ブロックの出口で生きているもの
+      \item このあと定義の前に使用があるもの
+      \item この節点が {\tt{node[y]}} と一致するもの
+      \item 現在の基本ブロックでアドレス参照されているもの
+      \end{enumerate}
+      もし該当するものがなければ
       {\tt{m\_vars}} の先頭を {\tt{y}} とします.
 
 \item 識別子並びで {\tt{y}} の次のものからすべてに対して
       以下を適用します.
 \begin{enumerate}
+\item この節点のラベルが {\tt{loff}} ならば
+      3 番地コード {\tt{x := y}} を生成します.
 \item \label{optimize052}
       識別子 {\tt{x}} に対して, この節点の親のラベルが {\tt{p := \&x}}
       ならば, 節点が葉の場合のみ 3 番地コード {\tt{x := y}} を生成します.
+\item この節点の親 {\tt{p}} で以下の条件を満たすものがあるのならば 3 番地コ
+      ード {\tt{x := y}} を生成します.
+      \begin{enumerate}
+      \item {\tt{p}} のラベルが {\tt{loff}} である
+      \item {\tt{p}} に 3 番目の子供がいる
+      \item {\tt{p}} の 3 番目の子供の識別子並びに {\tt{x}} がある
+      \end{enumerate}
 \item 識別子 {\tt{x}} に対して, この節点と {\tt{node[x]}} とが一致してい
-      ないのならば代入を生成しません.
+      ないのならば代入は生成しません.
 \item \label{optimize053} 
       {\tt{x}} がこの基本ブロックの出口で生きている場合
       3 番地コード {\tt{x := y}} を生成します.
@@ -774,10 +767,10 @@ f:
 \end{quote}
 
 \begin{quote}
-{\bf 代入判定アルゴリズムにおける特別な場合(その 1)}
+{\bf 代入判定アルゴリズムにおける特別な場合}
 \begin{enumerate}
 \item \label{optimize072}
-      節点の識別子並びから {\tt{node[t]}} がこの節点と同一である {\tt{t}} を
+      節点の識別子並びから {\tt{node[t]}} がこの節点と一致している {\tt{t}} を
       探します. そのような {\tt{t}} がなければ
       特別でないとして 0 を返します.
 
@@ -787,23 +780,6 @@ f:
 \item 先頭 {\tt{x}}  に対して {\tt{t := x}} を生成します.
 
 \item {\tt{t}} を返します.
-\end{enumerate}
-\end{quote}
-
-\begin{quote}
-{\bf 代入判定アルゴリズムにおける特別な場合(その 2)}
-\begin{enumerate}
-\item \label{optimize107}
-      手順 \ref{optimize054} の
-      識別子並びの先頭 {\tt{x}} と見つかった {\tt{y}} に対して
-      {\bf {\em dag} からのコード生成アルゴリズム} の手順
-      \ref{optimize064} で記録された 3 番地コードから
-      {\tt{x[y'] := z'}} なるものを検索します. なければ
-      この手続きを終了します.
-\item 変換先の 3 番地コードコンテナ
-      {\tt vector<tac*> conv} の最後の要素の前に
-      手順 \ref{optimize107} で見つかったものを
-      {\tt{y[y'] := z'}}  としてコピーします.
 \end{enumerate}
 \end{quote}
 
@@ -826,12 +802,12 @@ f:
 示しました.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.468\linewidth,height=1.0\linewidth]{opt001.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.468\linewidth,height=1.0\linewidth]{opt001.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.468\linewidth,height=1.0\linewidth]{opt001.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize007} の {\em dag}}
 \label{optimize008}
 \end{center}
@@ -864,12 +840,12 @@ f:
 示しました.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.392\linewidth,height=1.0\linewidth]{opt002.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.392\linewidth,height=1.0\linewidth]{opt002.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.392\linewidth,height=1.0\linewidth]{opt002.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize009} の {\em dag}}
 \label{optimize010}
 \end{center}
@@ -908,12 +884,12 @@ f:
 図 \ref{optimize012} に示しました.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.530\linewidth,height=1.0\linewidth]{opt003.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.530\linewidth,height=1.0\linewidth]{opt003.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.530\linewidth,height=1.0\linewidth]{opt003.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize011} の {\tt{call g}} を処理するまでの {\em dag}}
 \label{optimize012}
 \end{center}
@@ -956,12 +932,12 @@ f:
 図 \ref{optimize014} に示しました.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.0\linewidth,height=0.729\linewidth]{opt004.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.0\linewidth,height=0.729\linewidth]{opt004.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=1.0\linewidth,height=0.729\linewidth]{opt004.eps}
-\end{latexonly}
+%%\end{latexonly}
 を作成する過程
 \caption{例 \ref{optimize013} の {\tt{*t1 := 3}} を処理するまでの {\em dag}}
 \label{optimize014}
@@ -1011,12 +987,12 @@ f:
 この 3 番地コードに対する {\em dag} を図 \ref{optimize040} に示しました.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.724\linewidth,height=0.7\linewidth]{opt021.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.724\linewidth,height=0.7\linewidth]{opt021.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.724\linewidth,height=0.7\linewidth]{opt021.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize039} の {\em dag}}
 \label{optimize040}
 \end{center}
@@ -1067,12 +1043,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.051\linewidth,height=1.0\linewidth]{opt022.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.051\linewidth,height=1.0\linewidth]{opt022.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=1.051\linewidth,height=1.0\linewidth]{opt022.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize041} の {\em dag}}
 \label{optimize042}
 \end{center}
@@ -1129,12 +1105,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.7\linewidth,height=0.540\linewidth]{opt023.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.7\linewidth,height=0.540\linewidth]{opt023.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.7\linewidth,height=0.540\linewidth]{opt023.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize043} の {\em dag}}
 \label{optimize044}
 \end{center}
@@ -1183,12 +1159,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.7\linewidth,height=0.540\linewidth]{opt024.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.7\linewidth,height=0.540\linewidth]{opt024.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.7\linewidth,height=0.540\linewidth]{opt024.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize045} の {\em dag}}
 \label{optimize046}
 \end{center}
@@ -1235,12 +1211,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.7\linewidth,height=0.362\linewidth]{opt005.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.7\linewidth,height=0.362\linewidth]{opt005.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.7\linewidth,height=0.362\linewidth]{opt005.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize015} の {\em dag}}
 \label{optimize016}
 \end{center}
@@ -1309,12 +1285,12 @@ f:
 図 \ref{optimize018} のようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.8\linewidth,height=0.525\linewidth]{opt007.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.8\linewidth,height=0.525\linewidth]{opt007.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.8\linewidth,height=0.525\linewidth]{opt007.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize017} の {\tt{*t1 := 1}} を処理するまでに作成される {\em dag}}
 \label{optimize018}
 \end{center}
@@ -1373,12 +1349,12 @@ f:
 図 \ref{optimize024} のようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.7\linewidth,height=0.423\linewidth]{opt010.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.7\linewidth,height=0.423\linewidth]{opt010.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.7\linewidth,height=0.423\linewidth]{opt010.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize023} の {\tt{*t1 := 1}} を処理するまでの {\em dag}}
 \label{optimize024}
 \end{center}
@@ -1435,12 +1411,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.0\linewidth,height=0.507\linewidth]{opt008.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.0\linewidth,height=0.507\linewidth]{opt008.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=1.0\linewidth,height=0.507\linewidth]{opt008.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize019} の {\em dag}}
 \label{optimize020}
 \end{center}
@@ -1493,12 +1469,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.8\linewidth,height=0.470\linewidth]{opt009.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.8\linewidth,height=0.470\linewidth]{opt009.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.8\linewidth,height=0.470\linewidth]{opt009.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize021} の {\em dag}}
 \label{optimize022}
 \end{center}
@@ -1527,12 +1503,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.7\linewidth,height=0.552\linewidth]{opt011.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.7\linewidth,height=0.552\linewidth]{opt011.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.7\linewidth,height=0.552\linewidth]{opt011.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize025} の {\em dag}}
 \label{optimize026}
 \end{center}
@@ -1578,12 +1554,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.0\linewidth,height=0.483\linewidth]{opt012.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.0\linewidth,height=0.483\linewidth]{opt012.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=1.0\linewidth,height=0.483\linewidth]{opt012.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize027} の {\em dag}}
 \label{optimize028}
 \end{center}
@@ -1630,18 +1606,18 @@ f:
 {\em dag} が作成され, それ以降下半分の {\em dag} が作成されます.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.8\linewidth,height=0.571\linewidth]{opt013.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.8\linewidth,height=0.571\linewidth]{opt013.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.8\linewidth,height=0.571\linewidth]{opt013.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize029} の {\em dag}}
 \label{optimize030}
 \end{center}
 \end{figure}
-函数 {\tt{f}} は 1 つの基本ブロックから構成され, 最初の基本ブロック
-のこの基本ブロックの出口で生きている変数は {\tt{g, n, 1, 2, 3}} です.
+函数 {\tt{f}} は 1 つの基本ブロックから構成され, 
+この基本ブロックの出口で生きている変数は {\tt{g, n, 1, 2, 3}} です.
 識別子並び {\tt{2, n, t0}} の節点に対して
 {\bf 代入判定アルゴリズム} 手順 \ref{optimize054} で
 {\tt{2}} を選択することになります. {\tt{n}} はこの基本ブロック
@@ -1701,12 +1677,13 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.859\linewidth,height=1.0\linewidth]{opt016.png}
-\end{htmlonly}
-\begin{latexonly}
-\includegraphics[width=0.859\linewidth,height=1.0\linewidth]{opt016.eps}
-\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.859\linewidth,height=1.0\linewidth]{opt016.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
+%%\includegraphics[width=0.859\linewidth,height=1.0\linewidth]{opt016.eps}
+\includegraphics[width=1.0\linewidth,height=1.2\linewidth]{opt016.eps}
+%%\end{latexonly}
 \caption{例 \ref{optimize031} の {\em dag}}
 \label{optimize032}
 \end{center}
@@ -1714,13 +1691,16 @@ f:
 函数 {\tt{f}} は 1 つの基本ブロックから構成され
 この基本ブロックの出口で生きている変数は
 {\tt{g, "abc", 0, 1, 2, 3, 'a', 'b', 'c', '\verb|\|0'}} です.
-ここで親を持たない {\tt{loff}} をラベルとする 3 つの
-節点について考えてみます. {\tt{s}} はこの基本ブロックの出口で
-生きていないわけですから, {\tt{loff}} でないラベルであれば
-省略できたかもしれません. しかし, 函数 {\tt{g}} への引数を
+
+1 つ目の{\tt{loff}} をラベルとする節点以外の
+{\tt{loff}} をラベルとする節点は 3 番目の子供を持っています.
+{\tt{s}} はこの基本ブロックの出口で
+生きていないわけですから, 3 番目の子供がいなければ
+省略されていたでしょう. しかし, 函数 {\tt{g}} への引数を
 {\tt{s}} のアドレスとしている限り, これらは省略できないことが
-分かりま
-す. {\bf {\em dag} からのコード生成アルゴリズム} 手順 \ref{optimize064} で
+分かります.
+
+{\bf {\em dag} からのコード生成アルゴリズム} 手順 \ref{optimize064} で
 このように {\tt{x[y] := z}} を特別に扱っているのはこのような理由
 があるからです. 変換後
 \begin{verbatim}
@@ -1755,12 +1735,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.8\linewidth,height=0.247\linewidth]{opt018.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.8\linewidth,height=0.247\linewidth]{opt018.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.8\linewidth,height=0.247\linewidth]{opt018.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize033} の {\em dag}}
 \label{optimize034}
 \end{center}
@@ -1795,12 +1775,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.0\linewidth,height=0.623\linewidth]{opt020.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.0\linewidth,height=0.623\linewidth]{opt020.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=1.0\linewidth,height=0.623\linewidth]{opt020.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize037} の {\em dag}}
 \label{optimize038}
 \end{center}
@@ -1839,12 +1819,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.0\linewidth,height=0.328\linewidth]{opt027.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.0\linewidth,height=0.328\linewidth]{opt027.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=1.0\linewidth,height=0.328\linewidth]{opt027.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize065} の {\em dag}}
 \label{optimize066}
 \end{center}
@@ -1852,7 +1832,7 @@ f:
 識別子並び {\tt{n, t0}} の節点に対して {\bf 代入判定アルゴリズム} を
 適用すると, {\tt{node[n]}} はこの節点と一致しませんが, {\tt{node[t0]}}
 がこの節点と一致するので
-{\bf 代入判定アルゴリズムにおける特別な場合(その 1)} に該当
+{\bf 代入判定アルゴリズムにおける特別な場合}に該当
 します. この結果 {\tt{t0}} に対する代入が生成されます. 変換後,
 \begin{verbatim}
 f:
@@ -1886,12 +1866,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.826\linewidth,height=1.0\linewidth]{opt028.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.826\linewidth,height=1.0\linewidth]{opt028.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.826\linewidth,height=1.0\linewidth]{opt028.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize068} の {\em dag}}
 \label{optimize069}
 \end{center}
@@ -1926,12 +1906,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.8\linewidth,height=0.347\linewidth]{opt029.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.8\linewidth,height=0.347\linewidth]{opt029.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.8\linewidth,height=0.347\linewidth]{opt029.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize070} の {\em dag}}
 \label{optimize071}
 \end{center}
@@ -1940,7 +1920,7 @@ f:
 {\bf 代入判定アルゴリズム} を適用すると,
 {\tt{node[s]}} はこの節点と一致しませんが, {\tt{node[t0]}}
 がこの節点と一致するので
-{\bf 代入判定アルゴリズムにおける特別な場合(その 1)} に該当
+{\bf 代入判定アルゴリズムにおける特別な場合}に該当
 します. この結果 {\tt{t0}} に対する代入が生成されます. 変換後,
 \begin{verbatim}
 f:
@@ -1973,12 +1953,13 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.0\linewidth,height=0.439\linewidth]{opt030.png}
-\end{htmlonly}
-\begin{latexonly}
-\includegraphics[width=1.0\linewidth,height=0.439\linewidth]{opt030.eps}
-\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.0\linewidth,height=0.439\linewidth]{opt030.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
+%%\includegraphics[width=1.0\linewidth,height=0.439\linewidth]{opt030.eps}
+\includegraphics[width=1.2\linewidth,height=1.0\linewidth]{opt030.eps}
+%%\end{latexonly}
 \caption{例 \ref{optimize073} の {\em dag}}
 \label{optimize074}
 \end{center}
@@ -1986,16 +1967,15 @@ f:
 函数 {\tt{f}} は 1 つの基本ブロックからなり, この基本ブロック
 の出口で生きている変数は {\tt{g, 0, 1, 2, 4}} です.
 このため {\tt{y[0] := 1}} をラベルとする節点に
-対してコードは生成されません.
-しかし識別子並び {\tt{y, t0, x, t1}} の節点に対して
-{\tt{y[4] := 2}} を生成する前に
-{\bf {\em dag} からのコード生成アルゴリズム} 手順
-\ref{optimize108} で, 生成されなかった {\tt{y[0] := 1}} が
-生成されることになります. 変換後,
+対してコード生成されるためにはこの節点に対して親が存在する
+必要があります. 変換後
 \begin{verbatim}
 f:
   y[0] := 1
   y[4] := 2
+    t0 := y  # 本来削除されるべきだが
+     x := y  # このアルゴリズムでは
+    t1 := y  # 現状できない
   param y
   call g
 \end{verbatim}
@@ -2037,12 +2017,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.0\linewidth,height=0.894\linewidth]{opt032.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.0\linewidth,height=0.894\linewidth]{opt032.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=1.0\linewidth,height=0.894\linewidth]{opt032.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize077} の {\em dag}}
 \label{optimize078}
 \end{center}
@@ -2093,12 +2073,12 @@ f:
 上半分で, それ以降に作成される {\em dag} が下半分になります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.6\linewidth,height=0.6\linewidth]{opt033.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.6\linewidth,height=0.6\linewidth]{opt033.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.6\linewidth,height=0.6\linewidth]{opt033.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize079} の {\em dag}}
 \label{optimize080}
 \end{center}
@@ -2145,12 +2125,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.493\linewidth,height=0.6\linewidth]{opt034.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.493\linewidth,height=0.6\linewidth]{opt034.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.493\linewidth,height=0.6\linewidth]{opt034.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize081} の {\em dag}}
 \label{optimize082}
 \end{center}
@@ -2190,12 +2170,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.0\linewidth,height=0.509\linewidth]{opt035.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.0\linewidth,height=0.509\linewidth]{opt035.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=1.0\linewidth,height=0.509\linewidth]{opt035.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize083} の {\em dag}}
 \label{optimize084}
 \end{center}
@@ -2224,7 +2204,7 @@ f:
 extern int a[];
 void f(int i, int j){ int x = a[i]; a[i] = a[j]; a[j] =	x; }
 \end{verbatim}
-sizeof(int) = 4 とすると, 3 番地コードは以下のようになります.
+3 番地コードは以下のようになります.
 \begin{verbatim}
 f:
     t0 := i << 2
@@ -2242,12 +2222,13 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=1.0\linewidth,height=1.069\linewidth]{opt031.png}
-\end{htmlonly}
-\begin{latexonly}
-\includegraphics[width=1.0\linewidth,height=1.069\linewidth]{opt031.eps}
-\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=1.0\linewidth,height=1.069\linewidth]{opt031.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
+%\includegraphics[width=1.0\linewidth,height=1.069\linewidth]{opt031.eps}
+\includegraphics[width=1.0\linewidth,height=1.4\linewidth]{opt031.eps}
+%%\end{latexonly}
 \caption{例 \ref{optimize075} の {\em dag}}
 \label{optimize076}
 \end{center}
@@ -2287,12 +2268,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.7\linewidth,height=0.529\linewidth]{opt036.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.7\linewidth,height=0.529\linewidth]{opt036.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.7\linewidth,height=0.529\linewidth]{opt036.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize085} の {\em dag}}
 \label{optimize086}
 \end{center}
@@ -2332,12 +2313,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.392\linewidth,height=0.5\linewidth]{opt037.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.392\linewidth,height=0.5\linewidth]{opt037.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.392\linewidth,height=0.5\linewidth]{opt037.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize087} の {\em dag}}
 \label{optimize088}
 \end{center}
@@ -2373,7 +2354,7 @@ sizeof(double) = 8 とすると 3 番地コードは以下のようになります.
 f:
   t0 := n
   t1 := t0 << 3
-  alloc a, t1
+  alloca a, t1
   param 1.0
   call g
   t2 := j << 3
@@ -2383,18 +2364,18 @@ f:
   t5 := a[t4]
   param t5
   call g
-  dealloc a, t1
 \end{verbatim}
 3 番地コードから {\em dag} を作成すると図 \ref{optimize090} の
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.392\linewidth,height=0.5\linewidth]{opt038.png}
-\end{htmlonly}
-\begin{latexonly}
-\includegraphics[width=0.928\linewidth,height=1.0\linewidth]{opt038.eps}
-\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.392\linewidth,height=0.5\linewidth]{opt038.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
+%\includegraphics[width=0.928\linewidth,height=1.0\linewidth]{opt038.eps}
+\includegraphics[width=1.2\linewidth,height=1.0\linewidth]{opt038.eps}
+%%\end{latexonly}
 \caption{例 \ref{optimize089} の {\em dag}}
 \label{optimize090}
 \end{center}
@@ -2402,7 +2383,7 @@ f:
 函数 {\tt{f}} は 1 つの基本ブロックから構成されます.
 この基本ブロックの出口で生きている変数は {\tt{g, 1.0, 2.0, 3}} です.
 
-図 \ref{optimize090} の真ん中の {\em dag} において, 3 番地コー
+図 \ref{optimize090} の {\em dag} において, 3 番地コー
 ド {\tt{t5 := a[t4]}} に対応する節点
 は, {\bf 基本ブロックの {\em dag} 作成アルゴリズム}手順
  \ref{optimize109} から識別子並び {\tt{2.0, t3}} をもつ節点となります.
@@ -2410,14 +2391,12 @@ f:
 \begin{verbatim}
 f:
   t1 := n << 3
-  alloc a, t1
+  alloca a, t1
   param 1.0
   call g
   t2 := j << 3
-  a[t2] := 2.0
   param 2.0
   call g
-  dealloc a, t1
 \end{verbatim}
 となります.
 \end{Example}
@@ -2445,13 +2424,13 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.8\linewidth,height=0.648\linewidth]{opt039.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.8\linewidth,height=0.648\linewidth]{opt039.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.8\linewidth,height=0.648\linewidth]{opt039.eps}
-\end{latexonly}
-\caption{例 \ref{optimize090} の {\em dag}}
+%%\end{latexonly}
+\caption{例 \ref{optimize091} の {\em dag}}
 \label{optimize096}
 \end{center}
 \end{figure}
@@ -2461,26 +2440,19 @@ f:
 図 \ref{optimize090} の上半分の {\em dag} で
 ラベルが {\tt{s[0] := t0}} である
 節点について
-{\bf {\em dag} からのコード生成アルゴリズム} を適用すると,
-{\tt{s}} はこの基本ブロックの出口で生きていないので
-コードは生成されません. しかし手順 \ref{optimize064} で
-この 3 番地コードが記録されます.
-
-図 \ref{optimize090} の下半分の {\em dag} で
-ラベルが {\tt{s[4] := t2}} である
-節点について {\bf {\em dag} からのコード生成アルゴリズム} を適用すると,
-手順 \ref{optimize108} で 
-図 \ref{optimize090} の上半分の {\em dag} で
-生成
-されなかったが, 記録された 3 番地コードを生成することになります.
-変換後,
+{\bf {\em dag} からのコード生成アルゴリズム}を適用すると,
+{\tt{s}} はこの基本ブロックの出口で生きていないですが
+{\tt{g}} の呼び出しの後に {\tt{s[4] := t2}} の節点で
+(定義される前に)使用されかつ {\tt{node[s]}} がこの節点と一致している
+からコード生成されます.
+変換後
 \begin{verbatim}
 f:
+  s[0] := n
   param n
   t2 := call g
-  s[0] := n
   s[4] := t2
-  return t3
+  return s
 \end{verbatim}
 となります.
 \end{Example}
@@ -2501,8 +2473,8 @@ f:
   t0 := .comp0
   goto label1
   label0:
-  .comp3[0] := 7
-  .comp3[4] := 8
+  .comp1[0] := 7
+  .comp1[4] := 8
   t0 := .comp3
   label1:
   return t0
@@ -2511,12 +2483,13 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.857\linewidth,height=1.0\linewidth]{opt040.png}
-\end{htmlonly}
-\begin{latexonly}
-\includegraphics[width=0.857\linewidth,height=1.0\linewidth]{opt040.eps}
-\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.857\linewidth,height=1.0\linewidth]{opt040.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
+%\includegraphics[width=0.857\linewidth,height=1.0\linewidth]{opt040.eps}
+\includegraphics[width=1.0\linewidth,height=1.4\linewidth]{opt040.eps}
+%%\end{latexonly}
 \caption{例 \ref{optimize092} の {\em dag}}
 \label{optimize093}
 \end{center}
@@ -2525,28 +2498,18 @@ f:
 2 つ目と 3 つ目の基本ブロックの出口で {\tt{t0}} が生きてい
 ます.
 
-2 つ目の基本ブロックについて考えてみます.
-ラベル {\tt{.comp0[0] := 1}} をもつ節点に対して
-{\bf {\em dag} からのコード生成アルゴリズム} を適用すると
-{\tt{.comp0}} はこの基本ブロックの出口で生きていないので
-コードは生成されませんが, 手順 \ref{optimize064} で
-この 3 番地コードが記録されます.
-識別子並び {\tt{.comp0, t0}} をもつ節点に対して
-{\bf 代入判定アルゴリズム} を適用すると
-{\tt{t0}} がこの基本ブロックの出口で生きているので
-{\bf 代入判定アルゴリズムにおける特別な場合(その 2)} に該当すること
-が分かります. すなわち, 生成はされなかったが記録されている
-3 番地コード {\tt{.comp0[0] := 1}} を {\tt{t0[0] := 1}} に
-変更します. これより変換後
+変換後
 \begin{verbatim}
 f:
   if x == 0 goto label0
-  t0[0] := 1
-  t0[4] := 2
+  .comp0[0] := 1
+  .comp0[4] := 2
+  t0 := .comp0
   goto label1
 label0:
-  t0[0] := 7
-  t0[4] := 8
+  .comp1[0] := 7
+  .comp1[4] := 8
+  t0 := .comp1
 label1:
   return t0
 \end{verbatim}
@@ -2579,12 +2542,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.496\linewidth,height=1.0\linewidth]{opt041.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.496\linewidth,height=1.0\linewidth]{opt041.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.496\linewidth,height=1.0\linewidth]{opt041.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize094} の {\em dag}}
 \label{optimize095}
 \end{center}
@@ -2644,12 +2607,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.619\linewidth,height=1.2\linewidth]{opt043.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.619\linewidth,height=1.2\linewidth]{opt043.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.619\linewidth,height=1.2\linewidth]{opt043.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize099} の {\em dag}}
 \label{optimize100}
 \end{center}
@@ -2706,12 +2669,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.556\linewidth,height=1.1\linewidth]{opt044.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.556\linewidth,height=1.1\linewidth]{opt044.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.556\linewidth,height=1.1\linewidth]{opt044.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize101} の {\em dag}}
 \label{optimize102}
 \end{center}
@@ -2726,7 +2689,7 @@ f:
 1 つ目の基本ブロックにおける識別子並び {\tt{j, t1}} をもつ節点, 
 2 つ目の基本ブロックにおける識別子並び {\tt{i, t2, t3}} をもつ節点, 
 3 つ目の基本ブロックにおける識別子並び {\tt{j, t4, t3}} をもつ節点は
-それぞれ {\bf 代入判定アルゴリズムにおける特別な場合(その 1)} に該当
+それぞれ {\bf 代入判定アルゴリズムにおける特別な場合}に該当
 します. また 2 つ目, 3 つ目の基本ブロックの出口で {\tt{i, j}} は生きてい
 ません. 変換後
 \begin{verbatim}
@@ -2782,12 +2745,12 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.788\linewidth,height=0.8\linewidth]{opt045.png}
-\end{htmlonly}
-\begin{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.788\linewidth,height=0.8\linewidth]{opt045.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
 \includegraphics[width=0.788\linewidth,height=0.8\linewidth]{opt045.eps}
-\end{latexonly}
+%%\end{latexonly}
 \caption{例 \ref{optimize103} の {\em dag}}
 \label{optimize104}
 \end{center}
@@ -2838,8 +2801,7 @@ void f(char *fmt, ...)
 3 番地コードは以下のようになります.
 \begin{verbatim}
 f:
-  ap := &fmt
-  ap := ap + 4
+  ap := va_start fmt
   t0 := fmt
   p := t0
   t1 := va_arg ap ,int
@@ -2855,12 +2817,13 @@ f:
 ようになります.
 \begin{figure}[htbp]
 \begin{center}
-\begin{htmlonly}
-\includegraphics[width=0.546\linewidth,height=1.2\linewidth]{opt046.png}
-\end{htmlonly}
-\begin{latexonly}
-\includegraphics[width=0.546\linewidth,height=1.2\linewidth]{opt046.eps}
-\end{latexonly}
+%%\begin{htmlonly}
+%%\includegraphics[width=0.546\linewidth,height=1.2\linewidth]{opt046.png}
+%%\end{htmlonly}
+%%\begin{latexonly}
+%\includegraphics[width=0.546\linewidth,height=1.2\linewidth]{opt046.eps}
+\includegraphics[width=1.0\linewidth,height=1.2\linewidth]{opt046.eps}
+%%\end{latexonly}
 \caption{例 \ref{optimize105} の {\em dag}}
 \label{optimize106}
 \end{center}
@@ -2869,15 +2832,13 @@ f:
 図 \ref{optimize106} の上半分の {\em dag} について
 考えてみます.
 識別子並び {\tt{fmt, t0, p}} をもつ節点
-に {\bf 代入判定アルゴリズム} を適用すると {\tt{fmt}} はこの基本ブロック
-の出口で生きていませんが, この節点の親のラベル {\tt{ap = \&fmt}} により
-アドレスが参照されているので選択されます. {\tt{p}} はこの後使用される
-ので, 代入 {\tt{p := fmt}} が生成されます. 変換後
+に {\bf 代入判定アルゴリズム} を適用すると, この節点は葉なので {\tt{fmt}} が選択
+されます. {\tt{p}} はこの後使用される
+ので, {\tt{p := fmt}} が {\tt{ap := va\_start fmt}} の先に生成されます. 変換後
 \begin{verbatim}
 f:
   p := fmt
-  ap := &fmt
-  ap := ap + 4
+  ap := va_start fmt
   t1 := va_arg ap ,int
   param t1
   call g
