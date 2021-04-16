@@ -3,7 +3,7 @@ In this chapter, we'll discuss about the way of generating 3 address
 codes for each statement. In chapter \ref{expr_e000}, we defined the
 interface for expression as the class `{\tt{expr}}' and represented
 the syntax analisis tree with it while bottom-up parsing. Samely,
-we'll define the interface for statemnet like bellow
+we'll define the interface for statemnet like below
 \begin{verbatim}
 struct stmt {
   virtual void gen() = 0;  // Generate 3 address codes.
@@ -11,7 +11,7 @@ struct stmt {
 };
 \end{verbatim}
 When the grammer symbol `{\tt{function-definition}}' is reduced,
-frontend generates 3 address codes like bellow.
+frontend generates 3 address codes like below.
 \begin{verbatim}
 %{
 /* yacc program text */
@@ -45,7 +45,7 @@ void function_definition(comp_stmt* cs)
 
 \subsection{label statement}
 \label{stmt_e000}
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct label_stmt : stmt {
   string m_label;
@@ -57,7 +57,7 @@ struct label_stmt : stmt {
 Thinking about the situation where
 a label definition is followed by {\tt{goto}} statement or
 {\tt{goto}} statement is followed by a label definition,
-we'll define two tables like bellow.
+we'll define two tables like below.
 \begin{verbatim}
 struct define {
   ...
@@ -74,7 +74,7 @@ struct use {
 map<string, use> used;  // Used label without definition
 \end{verbatim}
 {\tt{label\_stmt::gen}} referencing these tables
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 void label_stmt::gen()
 {
@@ -111,7 +111,7 @@ assumes that
 and that {\tt{default}} statement can only occur
 after all {\tt{case}} statements.
 
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct case_stmt : stmt {
   expr* m_expr;
@@ -166,7 +166,7 @@ void case_stmt::gen()
 
 \subsection{{\tt{default}} statement}
 \label{stmt_e003}
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct default_stmt : stmt {
   stmt* m_stmt;
@@ -218,7 +218,7 @@ statement codes which occur before it and must be followed by
 the initializer codes and
 statement codes which occur after it.
 
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct comp_stmt : stmt {
   typedef pair<vector<tac*>, stmt*> item;
@@ -229,7 +229,7 @@ struct comp_stmt : stmt {
 };
 \end{verbatim}
 {\tt{item::first}} is according to the initializer code.
-{\tt{comp\_stmt::gen}} becomes like bellow.
+{\tt{comp\_stmt::gen}} becomes like below.
 \begin{verbatim}
 void subr(const item& i)
 {
@@ -255,7 +255,7 @@ void comp_stmt::gen()
 
 \section{{\tt{exrepssion-statement}}}
 
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct expr_stmt : stmt {
   expr* m_expr;
@@ -276,7 +276,7 @@ struct expr_stmt : stmt {
 
 \subsection{{\tt{if}} statement}
 
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct if_stmt : stmt {
   expr* m_expr;
@@ -293,7 +293,7 @@ struct if_stmt : stmt {
 As we mentioned at \ref{expr_e016}, the way of generating 3 address
 codes for {\tt{if}} statement depends on the result of evaluating 
 expression. {\tt{var::if\_code}} which generates most general codes
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 void var::if_code(if_stmt* info)
 {
@@ -337,11 +337,11 @@ void var::if_code(if_stmt* info)
 {\tt{var01}} in figure \ref{expr_e013} becomes 0 or 1 in
 execution-time. We can use the characteristic.
 The way of generating {\tt{if}} statement 3 address code for {\tt{var01}} 
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 void var01::if_code(if_stmt* info)  // Override virtual function
 {
-  // Replace the codes like bellow
+  // Replace the codes like below
   //
   //   if y op z goto label
   //   res := 1             # This position is recorded in `m_one'
@@ -350,7 +350,7 @@ void var01::if_code(if_stmt* info)  // Override virtual function
   //   res := 0             # This position is recorded in `m_zero'
   // end:
   //
-  // to like bellow
+  // to like below
   //
   //   if y op z goto label
   //   (Codes of info->m_stmt1)
@@ -362,7 +362,7 @@ void var01::if_code(if_stmt* info)  // Override virtual function
 \end{verbatim}
 For arithmetic constant and constant pointer,
 the way of generating {\tt{if}} statement 3 address code
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 template<class T> void common(constant<T>* ptr, if_stmt* info);
 
@@ -405,7 +405,7 @@ outside {\tt{switch}} statement, especially, for {\tt{case}}
 statement, also recorded the result of evaluating expression
 in outside {\tt{switch}} statement.
 
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct break_outer : vector<goto3ac*> {};
 
@@ -481,7 +481,7 @@ void f(int n)
   }
 }
 \end{verbatim}
-3 address codes for above function becomes like bellow.
+3 address codes for above function becomes like below.
 \begin{verbatim}
 f:
   goto to1  # goto3ac* `start' of switch_stmt::gen
@@ -506,7 +506,7 @@ to2:  # break statement destination address in switch statement
 
 \subsection{{\tt{while}} statement}
 \label{stmt_e004}
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct continue_outer : vector<goto3ac*> {};
 
@@ -535,7 +535,7 @@ Samely with {\tt{if}} statement code generation,
 we'll call virtual function for the result of evaluating
 expression. 
 {\tt{var::while\_code}} which generates most general codes
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 stack<continue_outer*> continue_stack;
 
@@ -584,12 +584,12 @@ void var::while_code(while_stmt* info, to3ac* begin)
 \end{verbatim}
 For {\tt{var01}} in figure \ref{expr_e013},
 the way of generating {\tt{while}} statement 3 address code
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 // Override virtual function
 void var01::while_code(while_stmt* info, to3ac* begin)
 {
-  // Replace the codes like bellow
+  // Replace the codes like below
   //
   //   if y op z goto label
   //   res := 1             # This position is recorded in `m_one'
@@ -598,7 +598,7 @@ void var01::while_code(while_stmt* info, to3ac* begin)
   //   res := 0             # This position is recorded in `m_zero'
   // end:
   //
-  // to like bellow
+  // to like below
   //
   // begin:
   //   if y op z goto label
@@ -609,7 +609,7 @@ void var01::while_code(while_stmt* info, to3ac* begin)
 \end{verbatim}
 For arithmetic constant and constant pointer,
 the way of generating {\tt{while}} statement 3 address code
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 template<class T> void
 common(constant<T>* ptr, while_stmt* info, to3ac* begin);
@@ -640,7 +640,7 @@ common(constant<T>* ptr, while_stmt* info, to3ac* begin)
 
 \subsection{{\tt{do-while}} statement}
 
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct do_stmt : stmt, break_outer, continue_outer {
   stmt* m_stmt;
@@ -672,7 +672,7 @@ struct do_stmt : stmt, break_outer, continue_outer {
 Samely with {\tt{while}} statement, {\tt{do\_stmt}} is
 derived from {\tt{break\_outer}} and {\tt{continue\_outer}}.
 {\tt{var::do\_code}} which generates most general codes
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 void var::do_code(do_stmt* info, to3ac* begin)
 {
@@ -703,12 +703,12 @@ void var::do_code(do_stmt* info, to3ac* begin)
 \end{verbatim}
 For {\tt{var01}} in figure \ref{expr_e013},
 the way of generating {\tt{do-while}} statement 3 address code
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 // Override virtual function
 void var01::do_code(do_stmt* info, to3ac* begin)
 {
-  // Replace the codes like bellow
+  // Replace the codes like below
   //
   //   if y op z goto label
   //   res := 1             # This position is recorded in `m_one'
@@ -717,7 +717,7 @@ void var01::do_code(do_stmt* info, to3ac* begin)
   //   res := 0             # This position is recorded in `m_zero'
   // end:
   //
-  // to like bellow
+  // to like below
   //
   // begin:                   # Already generated.
   //   (Code of info->m_stmt) # Already generated.
@@ -734,12 +734,12 @@ figure \ref{expr_e013}.
 
 For {\tt{log01}},
 the way of generating {\tt{do-while}} statement 3 address code
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 // Override virtual function
 void log01::do_code(do_stmt* info, to3ac* begin)
 {
-  // Replace the codes like bellow
+  // Replace the codes like below
   //
   //   if y1 op z1 goto label
   //   if y2 op z2 goto label
@@ -749,7 +749,7 @@ void log01::do_code(do_stmt* info, to3ac* begin)
   //   ret := 0
   // end:
   //
-  // to like bellow
+  // to like below
   //
   // begin:                   # Already generated
   //   (Code of info->m_stmt) # Already generated
@@ -761,7 +761,7 @@ void log01::do_code(do_stmt* info, to3ac* begin)
 \end{verbatim}
 For arithmetic constant and constant pointer,
 the way of generating {\tt{do-while}} statement 3 address code
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 template<class T> void
 common(constant<T>* ptr, do_stmt* info, to3ac* begin);
@@ -795,7 +795,7 @@ common(constant<T>* ptr, do_stmt* info, to3ac* begin)
 
 Considering the case replacing first expression to 
 some declaration,
-the syntax analisis tree can be represented like bellow.
+the syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct for_stmt : stmt, break_outer, continue_outer {
   scope* m_scope;
@@ -827,7 +827,7 @@ struct for_stmt : stmt, break_outer, continue_outer {
 };
 \end{verbatim}
 {\tt{var::for\_code}} which generates most general codes
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 void var::for_code(for_stmt* info, to3ac* begin)
 {
@@ -889,12 +889,12 @@ void var::for_code(for_stmt* info, to3ac* begin)
 \end{verbatim}
 For {\tt{var01}} in figure \ref{expr_e013},
 the way of generating {\tt{for}} statement 3 address code
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 // Override virtual function
 void var01::for_code(for_stmt* info, to3ac* begin)
 {
-  // Replace the codes like bellow
+  // Replace the codes like below
   //
   //   if y op z goto label
   //   res := 1             # This position is recorded in `m_one'
@@ -903,7 +903,7 @@ void var01::for_code(for_stmt* info, to3ac* begin)
   //   res := 0             # This position is recorded in `m_zero'
   // end:
   //
-  // to like bellow
+  // to like below
   //
   // begin:                     # Already generated.
   //   (Code of info->m_expr1)  # Already generated.
@@ -919,7 +919,7 @@ void var01::for_code(for_stmt* info, to3ac* begin)
 \end{verbatim}
 For arithmetic constant and constant pointer,
 the way of generating {\tt{for}} statement 3 address code
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 template<class T> void
 common(constant<T>* ptr, for_stmt* info, to3ac* begin);
@@ -953,7 +953,7 @@ common(constant<T>* ptr, for_stmt* info, to3ac* begin)
 
 \subsection{goto statement}
 \label{stmt_e001}
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct goto_stmt : stmt {
   string m_label;
@@ -988,7 +988,7 @@ void goto_stmt::gen()
 
 \subsection{continue statement}
 
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct continue_stmt : stmt {
   ...
@@ -1009,7 +1009,7 @@ with that of \ref{stmt_e004}.
 
 \subsection{break statement}
 
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct break_stmt : stmt {
   ...
@@ -1030,7 +1030,7 @@ with that of \ref{stmt_e005}.
 
 \subsection{return statement}
 
-The syntax analisis tree can be represented like bellow.
+The syntax analisis tree can be represented like below.
 \begin{verbatim}
 struct return_stmt : stmt {
   expr* m_expr;
@@ -1040,7 +1040,7 @@ struct return_stmt : stmt {
 \end{verbatim}
 The return statment is valid if and only if the assignment is valid for the
 expression.
-{\tt{return\_stmt::gen}} becomes like bellow.
+{\tt{return\_stmt::gen}} becomes like below.
 \begin{verbatim}
 void return_stmt::gen()
 {

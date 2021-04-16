@@ -3,7 +3,7 @@ We described how to express type in chapter \ref{type_e001}.
 In this chapter, we'll think about how to calcurate
 {\em type expression} from declaration of C language.
 
-First, we'll start to think about bellow declaration, specifically.
+First, we'll start to think about below declaration, specifically.
 \begin{verbatim}
 int f(double (*)(void));
 \end{verbatim}
@@ -49,7 +49,7 @@ grammer symbol {\tt{pointer}} is reduced
 and then {\tt{void}} or grammer symbol {\tt{parameter-type-list}} 
 is reduced(${\MARU{\tt 5}}$ on figure \ref{decl_e001}).
 
-Second, we'll think about bellow declaration, specifically.
+Second, we'll think about below declaration, specifically.
 \begin{verbatim}
 int (*a[])();
 \end{verbatim}
@@ -89,7 +89,7 @@ At ${\MARU{\tt 5}}$ on figure \ref{decl_e003}
 declarator : pointer direct-declarator
 \end{verbatim}
 Above grammer is reduced. In this point, frontned calcurates
-the type attribute of {\tt{declarator}} like bellow:
+the type attribute of {\tt{declarator}} like below:
 
 The type attribute of grammer symbol {\tt{pointer}} 
 is ``pointer to $x$'', and that of grammer symbol
@@ -103,7 +103,7 @@ And more, at ${\MARU{\tt 6}}$ on figure \ref{decl_e003}
 direct-declarator : direct-declarator ()
 \end{verbatim}
 Above grammer is reduced. In this point, frontned calcurates
-the type attribute of {\tt{direct-declarator}} like bellow:
+the type attribute of {\tt{direct-declarator}} like below:
 
 The type attribute of right hand grammer symbol {\tt{direct-declarator}}
 is ``array of pointer to $x$''.
@@ -111,18 +111,18 @@ Now, $x$ is replaced to ``function returing $z$'',
 then, that of {\tt{direct-declarator}} becomes
 ``array of pointer to function returning $z$''.
 
-Here, please remeber that if bellow grammer
+Here, please remeber that if below grammer
 \begin{verbatim}
 direct-declarator : direct-declarator [ ]
 \end{verbatim}
 is reduced, the type attribute of left hand doesn't always become
-array. And samely, if bellow grammer
+array. And samely, if below grammer
 \begin{verbatim}
 direct-declarator : direct-declarator ( )
 \end{verbatim}
 is reduced, the type attribute of left hand doesn't always become
 function.
-Bellow declarations
+Below declarations
 \begin{verbatim}
 int f()[];
 int a[]();
@@ -156,7 +156,7 @@ When calcurating type expression from C language declaration,
 type $x$ is replaced to type $y$. But is it necessary in different sense to
 replace
 some type to another type for calcurating type expression
-from bellow declarations?
+from below declarations?
 
 \begin{verbatim}
 typedef int A[10];
@@ -208,7 +208,7 @@ while recognizing initializer.
       $m$ just means the position
       at {\tt{initializer-list}}. 
 \end{itemize}
-This infomation is denoted like bellow pair
+This infomation is denoted like below pair
 \[
 I \equiv (T,V,({\delta},{\delta}_{\tt{max}}),(n,n_{\tt{max}}),(m,M)) 
 \]
@@ -220,7 +220,7 @@ use  $I.\delta_{\max}$ notation.
 \begin{description}
 When the token {\tt{=}} which is followed by
 grammer symbol {\tt{initializer}} is reduced,
-apply bellow {\bf procedure for initializer} for
+apply below {\bf procedure for initializer} for
 \[
 I \equiv (T,V,(0,0),(-1,-1),(-1,-1))
 \]
@@ -255,7 +255,7 @@ procedure $I$. Otherwise apply for
       If $I.n \ge 0$, get $I.n$ th offset (${\delta}'$) and type ($T'$)
       for initialized object type $I.T$.
       If $T'$ is not scalar type and the type of $y$ is scalar type,
-      apply bellow {\bf procedure for assignment-expression special case}
+      apply below {\bf procedure for assignment-expression special case}
       for $I$. And terminate this procedure. 
 \item If not, i.e. $I.n < 0$,
       ${\delta}' = I.\delta$ , $T' = I.T$.
@@ -363,7 +363,7 @@ Go to \ref{initializer014}.
 \[
  I' \equiv (T',V',(0,0),(0,0),(0,M))
 \]
-Apply bellow for $I'$
+Apply below for $I'$
 
 \item \label{initializer009}
 
@@ -397,7 +397,7 @@ $I.n = I.n + 1$, $I.n_{\max} = \max(I.n_{\max},I.n)$.
 \item Let $T' = I.T$, and $V'$ is an empty initial value set.
 For each element of  {\tt{designation}},
 apply 
-bellow {\bf procedure for designator} for
+below {\bf procedure for designator} for
 \[
  I' \equiv (T',V',(0,0),(-1,-1),(-1,-1))
 \]
@@ -452,8 +452,8 @@ $I.\delta_{\max} = \max(I.\delta_{\max},I.\delta)$.
 \
 
 If the {\tt{designator}} is subscripting designator,
-apply bellow {\bf procedure for subscripting designator}.
-Otherwise apply bellow {\bf procedure for member designator}.
+apply below {\bf procedure for subscripting designator}.
+Otherwise apply below {\bf procedure for member designator}.
 
 \item[procedure for subscripting designator]
 
@@ -522,7 +522,7 @@ Otherwise, frontend generates 3 address code
 {\tt{x}}[$\delta$] := $y$, 
 for each element $(\delta,y)$ of the initial value set.
 
-In the bellow examples, we'll investigate how the algorithm
+In the below examples, we'll investigate how the algorithm
 works. For easy, assume that {\tt{sizeof(int)}} is equalt to 4,
  {\tt{sizeof(double)}} is equal to 8, and the alignment in 
 structure is 4, 8, respectively.
@@ -1487,7 +1487,7 @@ V_0 & = & \{(0,1), (4,0), (8,0), (12,0) \\
     &   &   (16,2), (20,0), (24,0), (28,0)  \}
 \end{eqnarray*}
 
-In Example \ref{initializer013}, bellow illustrates
+In Example \ref{initializer013}, below illustrates
 the caller procedure and called procedure and input.
 
 \begin{list}{$\cdot$}{}

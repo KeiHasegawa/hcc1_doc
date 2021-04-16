@@ -44,7 +44,7 @@ constant and parenthized expression. If {\tt{primary-expression}} is
 one of these except for parenthized expression, the attribute of token
 is pointer to {\tt{var}}. And if {\tt{primary-expression}} is 
 parenthized expression, we can get the pointer to {\tt{expr}}.
-{\tt{primary-expression}} can be represented like bellow.
+{\tt{primary-expression}} can be represented like below.
 \begin{verbatim}
 class prim_expr : public expr {
   var* m_var;
@@ -61,7 +61,7 @@ pointer generation rule is applied. About pointer generation,
 See bibliography
 \cite{KR} ``A7.1 pointer generation'' or
 bibliography \cite{ISO} ``6.2.2.1 Lvalues and function designators'', please.
-{\tt{prim\_expr::eval}} will be like bellow.
+{\tt{prim\_expr::eval}} will be like below.
 \begin{verbatim}
 var* prim_expr::eval()
 {
@@ -94,12 +94,12 @@ as static variable initial value,
 \label{expr_e017}
 \index{subscripting operator@subscripting operator}
 
-Consider bellow program.
+Consider below program.
 \begin{verbatim}
 void f(double* p, int i, int j){ p[j] = p[i]; }
 \end{verbatim}
 Assume that {\tt{sizeof(double) = 8}},
-frontend will generate 3 address codes like bellow.
+frontend will generate 3 address codes like below.
 \begin{verbatim}
 f:
   t0 := i * 8             # int t0
@@ -120,7 +120,7 @@ Consider another program.
 double a[10];
 void g(int i){ a[5] = a[i]; }
 \end{verbatim}
-Frontend will generate 3 address codes like bellow.
+Frontend will generate 3 address codes like below.
 \begin{verbatim}
 g:
      t0 := 8 * i          # int t0
@@ -136,7 +136,7 @@ Samely, generated 3 address code depends on usage as lvalue or rvalue.
 These two examples shows that we should change the way of evaluating
 subscripting operator according to subscripting operator opearnd
 in figure \ref{expr_e013}. So we'll implement this as virtual function
-like bellow.
+like below.
 \begin{verbatim}
 struct var {
   ...
@@ -149,7 +149,7 @@ struct genaddr : generated, addrof {
 };
 \end{verbatim}
 where, {\tt{genaddr}} is the result of pointer generation described in
-\ref{expr_e015}. {\tt{genaddr::subscripting}} will be like bellow.
+\ref{expr_e015}. {\tt{genaddr::subscripting}} will be like below.
 \begin{verbatim}
 // For `m_ref', pointer generation rule was applied, and then
 // subscripting operator is used with operand `index'
@@ -179,7 +179,7 @@ that generated code is depend on usange as lvalue or rvalue.
 In the first line of {\tt{genaddr::subscripting}}, we'll call virtual function
 `{\tt{var::rvalue}}' for using the result of some expression as rvalue.
 
-Samely, {\tt{var::subscripting}} will be like bellow.
+Samely, {\tt{var::subscripting}} will be like below.
 \begin{verbatim}
 var* var::subscripting(var* index)
 {
@@ -213,7 +213,7 @@ int* q = &((int*)0x5678)[9];  /* Initial value of `q' is
                                  0x5678 + sizeof(int) * 9 */
 \end{verbatim}
 Now, we'll define the virtual function `{\tt{offref}}', and
-override it if necessary like bellow.
+override it if necessary like below.
 \begin{verbatim}
 struct var {
   ...
@@ -283,7 +283,7 @@ For function type, pointer generation rule is applied
 samely with array type. Because we want to generate 3 address code
 {\tt{x := \&y}} only if necessary,
 we'll implement this as virtual function, samely with subscripting
-operator like bellow.
+operator like below.
 \begin{verbatim}
 struct var {
   ...
@@ -297,7 +297,7 @@ struct genaddr : generated, addrof {
 \end{verbatim}
 Actually, frontend must generate 3 address codes
 for calling {\tt{inline}} function, but here for easy,
-{\tt{genaddr::call}} will be like bellow.  
+{\tt{genaddr::call}} will be like below.  
 \begin{verbatim}
 // For `m_ref', pointer generation rule was applied, and then
 // function call operator is used with operand `arg'
@@ -313,7 +313,7 @@ var* genaddr::call(const vector<var*>& arg)
 \end{verbatim}
 Considering that function call operator can be used for not
 declared function in C language, 
-{\tt{var::call}} will be like bellow.
+{\tt{var::call}} will be like below.
 \begin{verbatim}
 var* var::call(const vector<var*>& arg)
 {
@@ -350,7 +350,7 @@ the number of arguments while evaluating function call operator.
 Especially in C language, 
 A function may be called with a variable number of arguments,
 whose function type expression is represented with {\tt{ellipsis\_type}},
-as described in \ref{type_e004}. We'll implement like bellow.
+as described in \ref{type_e004}. We'll implement like below.
 \begin{verbatim}
 // Get range of number of arguments from parameter
 pair<int,int>
@@ -416,7 +416,7 @@ Note that function declaration returing function and
 function declaration returning array are error,
 but function declaration returning incomplete tagged type
 is not error. And also that function call is error, which 
-returns incomplete tagged type. Frontend must check this like bellow.
+returns incomplete tagged type. Frontend must check this like below.
 \begin{verbatim}
 void f(void)
 {
@@ -426,7 +426,7 @@ void f(void)
   g();  /* OK. */
 }
 \end{verbatim}
-The correspond part of {\tt{call\_impl::common}} will be like bellow.
+The correspond part of {\tt{call\_impl::common}} will be like below.
 \begin{verbatim}
 var* call_impl::common(const func_type* ft, var* func,
                        const vector<var*>& arg)
@@ -453,7 +453,7 @@ var* call_impl::common(const func_type* ft, var* func,
 \label{expr_e024}
 \index{member reference operator@member reference operator}
 
-Let frontend to make node like bellow for member reference operator,
+Let frontend to make node like below for member reference operator,
 while bottom-up parsing.
 \begin{verbatim}
 class member : public expr {
@@ -467,13 +467,13 @@ public:
 \end{verbatim}
 Note that {\tt{(*$\alpha$).$\beta$}} shall be evaluated
 samely with {\tt{$\alpha$->$\beta$}}.
-Consider bellow example.
+Consider below example.
 \begin{verbatim}
   struct T { int c; int b; } *a;
   ...
   (*a).b = 1;
 \end{verbatim}
-Assume that {\tt{sizeof(int) = 4}}. If frontend generates bellow
+Assume that {\tt{sizeof(int) = 4}}. If frontend generates below
 3 address codes
 \begin{verbatim}
   t0 := *a      # struct T t0
@@ -483,14 +483,14 @@ Assume that {\tt{sizeof(int) = 4}}. If frontend generates bellow
 \end{verbatim}
 it's not correct. In these codes, {\em copied} object offset 4
 is written, which is copied from the area pointed by {\tt{a}}.
-Correct 3 address codes become like bellow.
+Correct 3 address codes become like below.
 \begin{verbatim}
   t1 := a + 4   # int* t1
  *t1 := 1
 \end{verbatim}
 Therefore, it's not correct to call virtual function {\tt{rvalue}}
 for member {\tt{m\_var}} in {\tt{member::eval}}.
-{\tt{member::eval}} will be like bellow easily.
+{\tt{member::eval}} will be like below easily.
 \begin{verbatim}
 var* member::eval()
 {
@@ -533,7 +533,7 @@ var* member::eval()
 \label{expr_e023}
 Now here, we'll mention about lvalue digressing from
 evaluating member reference operator.
-In C language, bellow expressions may have lvalue.
+In C language, below expressions may have lvalue.
 \begin{enumerate}
 \item identifier. {\tt{a = 1;}}
 \item string-literal ( not valid if it appears in left hand of
@@ -559,7 +559,7 @@ Expression {\tt{$\alpha$.$\beta$}} has lvalue if and only if
 $\alpha$ has lvalue.
 Now, we should not consider lvalue as attribute of expression.
 We should consider lvalue as attribute of the result of evaluating
-expression. i.e. make it virtual function of {\tt{var}} like bellow.
+expression. i.e. make it virtual function of {\tt{var}} like below.
 \begin{verbatim}
 struct var {
   ...
@@ -634,7 +634,7 @@ Consider also about {\tt{ref}} in figure \ref{expr_e013}.
 \begin{verbatim}
   char *a; ...; (*a)++;
 \end{verbatim}
-For this program, 3 address codes become like bellow.
+For this program, 3 address codes become like below.
 \begin{verbatim}
                   # The result of *a becomes `ref'
   t0 := *a        # char t0
@@ -773,7 +773,7 @@ But in an implementation, {\tt{generated}} is used in the very limited
 situation for representing the result of evaluating expression.
 In such an implementation, virtual function `{\tt{address}}' will not
 be called for {\tt{generated}}, so, it shouldn't be overridden.
-Or, override it like bellow.
+Or, override it like below.
 \begin{verbatim}
 var* generated::address(){ assert(0); /* Internal error. */ } 
 \end{verbatim}
@@ -889,7 +889,7 @@ template<class T> struct constant : usr {
 \end{verbatim}
 We always generate 3 address code in {\tt{var::plus}},
 but it will be erased in optimization phase.
-{\tt{var::plus}} becomes like bellow.
+{\tt{var::plus}} becomes like below.
 \begin{verbatim}
 var* c_compiler::var::plus()
 {
@@ -908,7 +908,7 @@ var* c_compiler::var::plus()
 }
 \end{verbatim}
 On the other hand, constant doesn't have lvalue, so,
-{\tt{constant<T>::plus}} becomes like bellow.
+{\tt{constant<T>::plus}} becomes like below.
 \begin{verbatim}
 template<class T> var* constant<T>::plus(){ ... return promotion(); }
 \end{verbatim}
@@ -964,7 +964,7 @@ template<class T> struct constant : usr {
   }
 };
 \end{verbatim}
-For example, 3 address codes becomes like bellow
+For example, 3 address codes becomes like below
 of evaluating {\tt{!*p}} for {\tt{char* p}}.
 \begin{verbatim}
   t0 := *p                 # char t0
@@ -1000,7 +1000,7 @@ struct var01 : var {
 };
 \end{verbatim}
 In the next chapter, we'll discuss about generating 3 address codes
-for statements. Now {\tt{var::not}} becomes like bellow.
+for statements. Now {\tt{var::not}} becomes like below.
 \begin{verbatim}
 var* var::not()
 {
@@ -1216,7 +1216,7 @@ var* var::mulr(constant<int>* y){ return var_impl::mul(y,this); }
 ...
 var* var::mulr(constant<long double>* y){ return var_impl::mul(y,this); }
 \end{verbatim}
-The common work is done in {\tt{var\_impl::mul}}. It becomes like bellow.
+The common work is done in {\tt{var\_impl::mul}}. It becomes like below.
 \begin{verbatim}
 namespace converion { const type* arithmetic(var**, var**); }
 
@@ -1234,7 +1234,7 @@ var: var_impl::mul(var* a, var* b)
 \end{verbatim}
 Later, we'll mention about arithmetic conversion.
 Here, we think about binary {\tt{*}} operator for
-arithmetic constant. It will be like bellow.
+arithmetic constant. It will be like below.
 \begin{verbatim}
 // V = char, signed char, unsigned char, short int, unsigned short int
 template<class V> struct constant : usr {
@@ -1268,7 +1268,7 @@ template<> struct constant<int> : usr {
 \end{verbatim}
 In bibliography \cite{ISO} 6.2.1.7, ``usual arithmetic conversions''
 is described. Taking care of the complicated case,
-{\tt{conversion::arithmetic}} becomes like bellow.
+{\tt{conversion::arithmetic}} becomes like below.
 \begin{verbatim}
 const type* conversion::arithmetic(var** y, var** z)
 {
@@ -1330,7 +1330,7 @@ var* var::addr(constant<char>* y){ return var_impl::mul(y,this); }
 var* var::addr(constant<void*>* y){ return var_impl::add(y,this); }
 var* var::addr(addrof* y){ return var_impl::add(y,this); }
 \end{verbatim}
-The common work is done in {\tt{var\_impl::add}}. It becomes like bellow.
+The common work is done in {\tt{var\_impl::add}}. It becomes like below.
 \begin{verbatim}
 namespace var_impl { var* pointer_integer(int op, var* y, var* z); }
 
@@ -1358,7 +1358,7 @@ var* var_impl::add(var* a, var* b)
 Later, we'll mention about {\tt{var\_impl::pointer\_integer}}
 which generates codes for pointer and integer type.
 Here, we think about binary {\tt{+}} operator for
-arithmetic constant and {\tt{addrof}}. It will be like bellow.
+arithmetic constant and {\tt{addrof}}. It will be like below.
 \begin{verbatim}
 template<> struct constant<int> : usr {
   int m_value;
@@ -1438,7 +1438,7 @@ struct addrof : virtual var {
 };
 \end{verbatim}
 In {\tt{var\_impl::pointer\_integer}}, generate codes for
-pointer and integer. It becomes like bellow.
+pointer and integer. It becomes like below.
 \begin{verbatim}
 // If y op z is defined, generate codes, where op is '+' or '-'.
 // Return none-zero if y is pointer type and z is integer type.
@@ -1513,7 +1513,7 @@ var* var_impl::sub(var* a, var* b)
 Later, we'll mention about {\tt{var\_impl::pointer\_pointer}}
 which generates codes for pointer and pointer type.
 Here, we think about binary {\tt{-}} operator for
-arithmetic constant and {\tt{addrof}}. It will be like bellow.
+arithmetic constant and {\tt{addrof}}. It will be like below.
 \begin{verbatim}
 template<> struct constant<int> : usr {
   ...
@@ -1525,7 +1525,7 @@ template<> struct constant<int> : usr {
 
   // Override virtual function
   // Perform runtime-evaluation int type arithmetic - arithmetic
-  // bellow functions.
+  // below functions.
   var* subr(constnat<char*>* y)
   {
     return new contant<int>(y->m_value - m_value);
@@ -1573,7 +1573,7 @@ struct addrof : virtual var {
 };
 \end{verbatim}
 {\tt{var\_impl::pointer\_pointer}} which judge binary {\tt{-}} operator
-is defined for two pointer operands becomes like bellow.
+is defined for two pointer operands becomes like below.
 \begin{verbatim}
 var* var_impl::pointer_pointer(var* y, var* z)
 {
@@ -1639,7 +1639,7 @@ var* var::rshr(constant<char>* y){ return var_impl::rsh(y,this); }
 var* var::rshr(constant<unsigned long long int>* y){ return var_impl::rsh(y,this); }
 \end{verbatim}
 For integer constant, runtime-evaluation is necessary, so override
-virtual functions like bellow.
+virtual functions like below.
 \begin{verbatim}
 template<> struct constant<int> : usr {
   ...
@@ -1659,7 +1659,7 @@ template<> struct constant<int> : usr {
   var* rshr(constant<unsigned long long int>* y);
 };
 \end{verbatim}
-{\tt{var\_impl::rsh}} becomes like bellow.
+{\tt{var\_impl::rsh}} becomes like below.
 \begin{verbatim}
 // Generate 3 address code for y >> z.
 var* var_impl::rsh(var* y, var* z)
@@ -1716,7 +1716,7 @@ var* var::ltr(constant<void*>* y){ return var_impl::lt(y,this); }
 var* var::ltr(addrof* y){ return var_impl::lt(y,this); }
 \end{verbatim}
 For constant, runtime-evaluation is necessary, so override
-virtual functions like bellow.
+virtual functions like below.
 \begin{verbatim}
 template<> struct constant<int> : usr {
   ...
@@ -1762,7 +1762,7 @@ struct addrof : virtual var {
   var* ltr(addrof* y);
 };
 \end{verbatim}
-{\tt{var\_impl::lt}} becomes like bellow.
+{\tt{var\_impl::lt}} becomes like below.
 \begin{verbatim}
 namespace var_impl { var* cmp(goto3ac::op, var*, var*); }
 var* var_impl::lt(var* y, var* z){ return cmp(goto3ac::LT,y,z); }
@@ -1809,7 +1809,7 @@ var* var_impl::cmp(goto3ac::op op, var* y, var* z)
 \end{verbatim}
 If two pointer operand are applied to relational operators,
 their type shall be compatible. So, {\tt{cmp\_impl::valid\_pointer}}
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 bool var_impl::cmp_impl::valid_pointer(goto3ac::op op, var* y, var* z)
 {
@@ -1837,7 +1837,7 @@ pointer to {\tt{void}} and pointer,
 integer constant 0 and pointer are defined.
 At \ref{expr_e020}, we described
 about {\tt{cmp\_impl::valid\_pointer}},
-and it becomes like bellow.
+and it becomes like below.
 \begin{verbatim}
 bool var_impl::cmp_impl::valid_pointer(goto3ac::op op, var* y, var* z)
 {
@@ -1971,7 +1971,7 @@ void f(int y, int z)
   } while ( y && z );
 }
 \end{verbatim}
-For `{\tt{f}}', 3 address codes become like bellow.
+For `{\tt{f}}', 3 address codes become like below.
 \begin{verbatim}
 f:
 label:
@@ -1988,7 +1988,7 @@ described at \ref{expr_e016}, or relational operator
 described at \ref{expr_e020}, you can find that
 we should change the way of generating 3 addrss code
 for {\tt{do-while}} statement. So we'll define the virtual
-function like bellow.
+function like below.
 \begin{verbatim}
 struct var {
   ...
@@ -2010,7 +2010,7 @@ struct log01 : var01 {
 \end{verbatim}
 In the next chapter, we'll discuss about generating 3 address codes
 for statements. {\tt{var::logical\_and}} returns {\tt{log01}} in
-figure \ref{expr_e013} like bellow.
+figure \ref{expr_e013} like below.
 \begin{verbatim}
 var* var::logical_and(int n, var* z)
 {
@@ -2067,7 +2067,7 @@ var* var::logical_and(int n, var* z)
 \end{verbatim}
 If the left operand is evaluated non-zero at run-time evaluation,
 frontend can generate fewwer 3 address codes for {\tt{\&\&}} operator.
-The bellow member virtual function does this work and return
+The below member virtual function does this work and return
 {\tt{var01}} in figure \ref{expr_e013} samely with
 \ref{expr_e016} and \ref{expr_e020}.
 \begin{verbatim}
@@ -2120,7 +2120,7 @@ second operand must be evaluated. Otherwise third operand must be
 evaluated.
 
 There are some constrains for second and third operand, which are
-more complicated than other operators so far. One of bellow must
+more complicated than other operators so far. One of below must
 be satisfied.
 \begin{itemize}
 \item Both are arithmetic. The result type of this operator
@@ -2194,7 +2194,7 @@ Samely with other operators, we overrode virtual funciton
 for constant. And more for {\tt{var01}} in figure \ref{expr_e013},
 because we want to generate fewer 3 address codes.
 
-{\tt{var::cond}}, which does most general work, becomes like bellow.
+{\tt{var::cond}}, which does most general work, becomes like below.
 \begin{verbatim}
 namespace var_impl { var* cond(var* a, int n, var* b, int m, var* c);
 var::cond(int n, int m, var* b, var* c)
@@ -2314,7 +2314,7 @@ var* usr::assign(var* right)  // Override virtual function
   // If initializer is specified for static variable, and
   // the initializer is consist of assignment operator,
   // it must be error because the result of assignment operator
-  // is not constant. The bellow code must be generated just for it.
+  // is not constant. The below code must be generated just for it.
   // And this redundant code will be erased at optimization phase.
   var* x = new var(T);
   if ( block* b = dynamic_cast<block*>(scope::current) )
@@ -2328,7 +2328,7 @@ and described later.
 
 Even though array or function has lvalue, they can not be left operand
 of assignment operator.
-{\tt{generated::assign}} becomes like bellow.
+{\tt{generated::assign}} becomes like below.
 \begin{verbatim}
 var* generated::assign(var* right)  // Override virtual function
 {
@@ -2351,7 +2351,7 @@ var* refaddr:assign(var* right)  // Override virtual function
 var* refbit::assign(var* right)  // Override virtual function
 {
   // Generate 3 address code for bit field
-  // like bellow.
+  // like below.
   //
   // t0 := ref[offset]
   // t0 := t0 & mask
@@ -2372,7 +2372,7 @@ var* refsomewhere:assign(var* right)  // Override virtual function
 \end{verbatim}
 
 {\tt{assign\_impl::valid}} judges if assignment is defined for operands.
-It returns the result of assignment operator if one of bellow is satisfied.
+It returns the result of assignment operator if one of below is satisfied.
 \begin{itemize}
 \item Both are arithmetic.
 \item Both are structure or union and they are {\em compatible}.
@@ -2387,7 +2387,7 @@ The result of comma operator is second operand.
 
 \section{\tt{constant-expression}}
 In the grammer in bibliography \cite{ISO},
-{\tt{constant-expression}} appears in bellow part.
+{\tt{constant-expression}} appears in below part.
 \begin{itemize}
 \item Bit field width.
 \item Value of enumeration member
@@ -2438,7 +2438,7 @@ struct const_expr : expr {
 \end{verbatim}
 
 Now here, {\tt{refaddr::address}} which references {\tt{const\_expr::flag}}
-becomes like bellow.
+becomes like below.
 \begin{verbatim}
 var* refaddr::address()
 {
@@ -2453,7 +2453,7 @@ var* refaddr::address()
                              // not generate 3 address code.
 }
 \end{verbatim}
-Now, frontend can work correctly for the bellow example.
+Now, frontend can work correctly for the below example.
 \begin{verbatim}
 int a[10];
 

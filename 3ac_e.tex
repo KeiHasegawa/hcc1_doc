@@ -2,7 +2,7 @@
 Chapter 8 of bibliography \cite{doragon} says that
 which kinds of 3 address code are necessary.
 Here, we'll think about the set of 3 address code for C compiler.
-3 address code can be coded like bellow structure.
+3 address code can be coded like below structure.
 \index{3 address code@3 address code}
 \begin{verbatim}
 struct var;  // variable. entry of symbol table.
@@ -15,7 +15,7 @@ struct tac {
 };
 \end{verbatim}
 For examle, 3 address code of addition is
-derived from {\tt{tac}} like bellow.
+derived from {\tt{tac}} like below.
 \begin{verbatim}
 struct add3ac : tac {
   add3ac(var* x, var* y, var* z) : tac(x,y,z) {}
@@ -51,7 +51,7 @@ int f(void)
    return printf("a = %d\n",a);
 }
 \end{verbatim}
-frontend generates 3 address codes like bellow.
+frontend generates 3 address codes like below.
 \begin{verbatim}
 f:
         a := 1
@@ -80,7 +80,7 @@ code. Is it OK?
 
 Answer : Sorry, but it isn't OK because frontend doesn't have to
 generate target code and frontend and backend must be build in
-implementation. I think you want to do like bellow.
+implementation. I think you want to do like below.
 \begin{verbatim}
 struct tac {
   ...
@@ -93,7 +93,7 @@ void backend::tac2target(const vector<tac*>& code)
   for_each(code.begin(),code.end(),mem_fun(&tac::gen_target));
 }
 \end{verbatim}
-Instead of above, you can code like bellow.
+Instead of above, you can code like below.
 \begin{verbatim}
 struct backend::table : map<string, void (*)(const tac*)> {
   table()
@@ -125,7 +125,7 @@ void backend::assign(const tac* p)
 
 \section{{\tt{x := y}}}
 
-A class coresspond to {\tt{x := y}} can be defined like bellow.
+A class coresspond to {\tt{x := y}} can be defined like below.
 \begin{verbatim}
 struct assign3ac : tac {
   assign3ac(var* x, var* y) : tac(x,y,0) {}
@@ -163,7 +163,7 @@ is effective considering optimization. For example,
 long int f(unsigned int a, int b){ return a * b; }
 \end{verbatim}
 For above function, fronend may generate 3 address codes
-like bellow.
+like below.
 \begin{verbatim}
 f:
     t0 := (unsigned int)b    # t0 : unsigned int
@@ -181,7 +181,7 @@ And frontend can eliminate first conversion code.
 And more, if backend assigns the same space
 to {\tt {int}} and {\tt {long int}}, and if frontend can know
 that, third converions code can be eliminated.
-In this case, optimized 3 address codes are like bellow.
+In this case, optimized 3 address codes are like below.
 \begin{verbatim}
 f:
     t1 := a * b             # t1 : unsigned int
@@ -242,7 +242,7 @@ Bitwise-not is defined for integer operand.
 \section{{\tt{x := (type)y}}}
 
 The class according to 3 address code for type conversion is like
-bellow.
+below.
 \begin{verbatim}
 struct cast3ac : tac {
   const type* m_type;   // contain type
@@ -276,7 +276,7 @@ Backend can distingish various {\tt{x := *y}} from the type of {\tt{x}}.
 \section{{\tt{*y := z}}}
 
 For both operand {\tt{y}} and {\tt{z}}, we regard source operands.
-The structure according this 3 address code is like bellow.
+The structure according this 3 address code is like below.
 \begin{verbatim}
 struct invladdr3ac : public tac {
   invladdr3ac(var* y, var* z) : tac(0,y,z) {}
@@ -299,7 +299,7 @@ Backend can distingish various {\tt{x[y] := z}} from the type of
 \section{{\tt{x := call y}}, {\tt{call y}}, {\tt{param y}}}
 
 \label{_3ac_e000} These are 3 address code for function call.
-The structure according to these are like bellow.
+The structure according to these are like below.
 \begin{verbatim}
 struct param3ac : tac {
   param3ac(var* y) : tac(0,y,0) {}
@@ -334,7 +334,7 @@ The type of {\tt{y}} is one of scalar, structure or union.
 \label{_3ac_e002}
 These represents unconditional jump, conditional jump and
 jump address,  respectively. The structure according to these are
-like bellow.
+like below.
 \begin{verbatim}
 struct goto3ac : tac {
   to3ac* m_to;  // contain jump address
@@ -384,7 +384,7 @@ void f(int n)
   ...
 }
 \end{verbatim}
-3 address code for this program is like bellow
+3 address code for this program is like below
 \begin{verbatim}
 f:
     t0 := 4 * n    # assume sizeof(int) = 4

@@ -72,7 +72,7 @@ but in this chapter, we just think about {\it compatiblity} of type.
 
 \section{Basic type}
 
-Bellow table shows C language basic type and its class.
+Below table shows C language basic type and its class.
 
 \begin{latexonly}
 \vspace{0.5cm}
@@ -101,7 +101,7 @@ C language & its class \\ \hline
 \vspace{0.5cm}
 \end{latexonly}
 
-For example, {\tt{int\_type}} is defined like bellow.
+For example, {\tt{int\_type}} is defined like below.
 \begin{verbatim}
 class int_type : public type {
   static int_type obj;  // Only object
@@ -113,7 +113,7 @@ public:
 
 \section{Pointer}
 \label{type_e003}
-Pointer can be defined like bellow.
+Pointer can be defined like below.
 \begin{verbatim}
 class pointer_type : public type {
   const type* m_T;  // referenced type
@@ -145,7 +145,7 @@ public:
 \label{type_e002}
 There are 3 qualifiers {\tt{const}}, {\tt{volatile}} and {\tt{restrict}}
 in C language.
-For example, {\tt{const}} can be expressed like bellow.
+For example, {\tt{const}} can be expressed like below.
 \begin{verbatim}
 class const_type : public type {
   const type* m_T;  // qualified type
@@ -161,7 +161,7 @@ public:
 };
 \end{verbatim}
 Someone may want to implement \tt{const\_type::create}
-like {\tt{pointer\_type::create}}. But see bellow example:
+like {\tt{pointer\_type::create}}. But see below example:
 \begin{verbatim}
 typedef const int CI;     // const_type(int_type)
 typedef volatile int VI;  // volatile_type(int_type)
@@ -179,7 +179,7 @@ to use same type object to express same type. If not,
 
 \section{Array}
 
-Array has its element type and dimension, so can be defined like bellow.
+Array has its element type and dimension, so can be defined like below.
 
 \begin{verbatim}
 class array_type : public type {
@@ -203,7 +203,7 @@ public:
   ...
 };
 \end{verbatim}
-See bellow declarations:
+See below declarations:
 \begin{verbatim}
 int a[10];
 ...
@@ -252,7 +252,7 @@ like figure \ref{type007}. Figure \ref{type008} is not fine.
 
 \section{Function}
 
-Function can be defined like bellow.
+Function can be defined like below.
 \begin{verbatim}
 class func_type : public type {
   const type* m_T;              // return type
@@ -397,7 +397,7 @@ enum E { /* add tag for enum E into symbol table */
 };
 \end{verbatim}
 
-Incomplete tagged type is defined like bellow.
+Incomplete tagged type is defined like below.
 \begin{verbatim}
 class incomplete_tagged_type : public type {
   tag* m_tag;

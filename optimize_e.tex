@@ -7,7 +7,7 @@ we'll discuss how frontend generates better symbol table and 3 address codes.
 As we described at chapter \ref{stmt_e006},
 when grammer symbol {\tt{function-definition}} is reduced
 while bottom-up parsing, symbol table and 3 address codes are obtained
-like bellow.
+like below.
 
 \begin{verbatim}
 %{
@@ -44,7 +44,7 @@ void function_definition(comp_stmt* cs)
 At \ref{_3ac_e002}, label are expressed class `{\tt{to3ac}}'
 which contains referencing jump code in the member `{\tt{to3ac::m\_goto}}'.
 So, we can easily know whether the label is referenced or not.
-And if not, the label is erased like bellow.
+And if not, the label is erased like below.
 \begin{verbatim}
 void erase_to3ac(vector<tac*>& v)
 {
@@ -67,7 +67,7 @@ void erase_to3ac(vector<tac*>& v)
 \label{optimize_e058}
 Chapter 9 of bibliography \cite{doragon} says about 
 the way of basic block optimization. Basic block
-is expressed like bellow.
+is expressed like below.
 \begin{verbatim}
 struct basic_block {
   tac** m_leader;                  // Leader of this basic block
@@ -94,7 +94,7 @@ int f(int* a, int* b, int n)
   return prod;
 }
 \end{verbatim}
-for above program, 3 address codes become like bellow.
+for above program, 3 address codes become like below.
 \begin{verbatim}
 f:
     prod := 0
@@ -135,7 +135,7 @@ figure \ref{optimize_e000}.
 \subsection{Alive medium variable beyond basic block}
 
 \label{optimize_e004}
-Bibliography \cite{doragon} 9.5 says like bellow.
+Bibliography \cite{doragon} 9.5 says like below.
 \begin{quote}
 However if medium code generation algorithm or optimization algorithm
 uses the same temporary variables through some basic blocks,
@@ -149,7 +149,7 @@ For example,
 \begin{verbatim}
 int f(int a, int b, int c){ return a * b + !c; }
 \end{verbatim}
-for this program, 3 address codes become like bellow.
+for this program, 3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := a * b
@@ -212,7 +212,7 @@ they are alive beyond basic blocks.
 
 Bibliography \cite{doragon} algorithm 10.4 says about 
 analisis alive variables, and here, we'll take this way.
-Consider bellow program please.
+Consider below program please.
 \begin{verbatim}
 
 extern int a[];
@@ -235,7 +235,7 @@ void quicksort(int m, int n)
 \end{verbatim}
 For this program, generate symbol table and 3 addres codes
 and then erase unreferenced label described in \ref{optimize_e003},
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 quicksort:                  label4:
   if n > m goto label0        t10 := 4 * i
@@ -288,7 +288,7 @@ figure \ref{optimize_e002}.
 It is possible that there are medium varialbes which is alive beyond
 basic blocks in \ref{optimize_e004}. But as far as this code, there is
 no any medium variable which is alive beyond basic block.
-This fact is led by bellow algorithm.
+This fact is led by below algorithm.
 
 Let $in[B]$ denote set of alive variables in the entrance of
 basic block $B$. Samely, let $out[B]$ denote set of alive
@@ -306,7 +306,7 @@ is available for solve these equations as described in bibliography
 \cite{doragon}.
 
 First, for each basic block in figure \ref{optimize_e002},
-calcurate $def, use$. They become like bellow.
+calcurate $def, use$. They become like below.
 
 \vspace{0.5cm}
 
@@ -441,7 +441,7 @@ For each basic block $B$, $in[B]$ of step 5 is equal to that of step 6.
 So the repeat method is finished.
 
 For each basic block $B$ in figure \ref{optimize_e002},
-$out[B]$ becomes like bellow.
+$out[B]$ becomes like below.
 
 \vspace{0.5cm}
 
@@ -474,7 +474,7 @@ we'll think about how to detect redundant assignment and common
 expression from 3 address codes.
 
 We'll express basic block with {\em dag} described in bibliography
- \cite{doragon}. {\em dag} is like bellow structure.
+ \cite{doragon}. {\em dag} is like below structure.
 
 \begin{verbatim}
 struct dag {  // Node of dag
@@ -492,14 +492,14 @@ map<var*, dag*> node;  // Table from variable to node.
 
 Before showing conversion from basic block to {\em dag},
 or corresponding code generation algorithm,
-let's think about bellow simple example.
+let's think about below simple example.
 
 \begin{Example}
 \label{optimize_e006}
 \begin{verbatim}
 int n; void f(void){ ++n; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    n := n + 1
@@ -567,12 +567,12 @@ in order.
 At last, {\tt{n := n + 1}} is only generated.
 \end{Example}
 
-We can get {\em dag} of basic block by bellow algorithm.
+We can get {\em dag} of basic block by below algorithm.
 
 \begin{quote}
 {\bf Creation {\em dag} of basic block algorithm}
 
-For each 3 address code of basic block, apply bellow. 
+For each 3 address code of basic block, apply below. 
 \begin{enumerate}
 \item For {\tt{x := y $op$ z}}, if {\tt{y}} is not specified,
       the 3 address code is special like 
@@ -593,7 +593,7 @@ For each 3 address code of basic block, apply bellow.
 
 \item 
 \label{optimize_e047}
-Get node $n$ like bellow.
+Get node $n$ like below.
 
 \begin{enumerate}
 \item If the 3 address code is {\tt{x := y}},
@@ -620,7 +620,7 @@ Get node $n$ like bellow.
       If exists, let it to be $n$.
 \item \label{optimize_e109}
       If there is not such a node and in case of {\tt{x := y[z]}},
-      find from {\tt{dag::all}} the node like bellow.
+      find from {\tt{dag::all}} the node like below.
       \begin{itemize}
       \item label is {\tt{x'[y'] := z'}}.
       \item {\tt{node[y]}} is equal to the node.
@@ -632,15 +632,15 @@ Get node $n$ like bellow.
 \end{enumerate}
 \item \label{optimize_e112}
       If this 3 address code is {\tt{call3ac} or {\tt{invladdr3ac}}},
-      apply bellow and terminate this procedure.
+      apply below and terminate this procedure.
       \begin{enumerate}
       \item If this 3 address code is {\tt{x := call f}} and {\tt{x}} 
             is not 0, add {\tt{x}} into {\tt{m\_vars}} of $n$ and
             update {\tt{node[x]}} to be $n$. 
       \item Apply {\bf Code generation algorithm from {\em dag}}
-	    described bellow.
+	    described below.
       \item Clear {\tt{node}}.
-      \item Clear {\tt{result}} described bellow.
+      \item Clear {\tt{result}} described below.
       \end{enumerate}
 
 \item For 3 address code {\tt{x := y $op$ z}}, if {\tt{x}} is not specified,
@@ -653,17 +653,17 @@ Get node $n$ like bellow.
 
 \end{quote}
 
-For generating code from {\em dag}, apply bellow.
+For generating code from {\em dag}, apply below.
 
 \begin{quote}
 {\bf Code generation algorithm from {\em dag}}
 
-For each node of {\tt{dag::all}}, apply bellow procedure which returns
+For each node of {\tt{dag::all}}, apply below procedure which returns
 {\tt{var*}}. And keep the result of this procedure in
 {\tt{map<dag*, var*> result}}.
 
 \begin{enumerate}
-\item If the label of the node is none, call bellow procedure
+\item If the label of the node is none, call below procedure
       {\bf Assignment judge algorithm} and return it.
 
 \item \label{optimize_e108}
@@ -687,7 +687,7 @@ For each node of {\tt{dag::all}}, apply bellow procedure which returns
       for optimization result, where {\tt{y}} and {\tt{z}}
       is obtained in \ref{optimize_e048}, \ref{optimize_e049}.
 \item Update `{\tt{x}}' of {x := y $op$ z} which is copied in
-      \ref{optimize_e050} appling bellow procedure
+      \ref{optimize_e050} appling below procedure
       {\bf Assignment judge algorithm}. Now we'll refere updated
        {\tt{x}} as just `{\tt{x}}'.
 \item  If `{\tt{x}}' is zero or this node has a parent or parents,
@@ -725,7 +725,7 @@ For each node of {\tt{dag::all}}, apply bellow procedure which returns
 \item  \label{optimize_e067}
       If the condition of
       {\bf Assignment judge algorithm (Special case 1) }
-      described bellow holds true, return the result.
+      described below holds true, return the result.
 \item \label{optimize_e055}
       If this node is leaf, 
       let the 1st elemnt of the identifier list to be `{\tt{y}}'.
@@ -750,7 +750,7 @@ For each node of {\tt{dag::all}}, apply bellow procedure which returns
       If not, let the 1st element of the identifier list to be `{\tt{y}}'.
  \item 
       For each element `{\tt{x}}' of identfier list which follows `{\tt{y}}',
-      apply bellow.
+      apply below.
 \begin{enumerate}
 \item \label{optimize_e052}
       If the label of parent of this node is a 3 address code
@@ -814,7 +814,7 @@ We'll think about and investigate how these algorithm work for some examples.
 \begin{verbatim}
 int n; void f(int a, int b, int c){ n = a + b + c; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := a + b
@@ -840,7 +840,7 @@ Function `{\tt{f}}' is consist of one basic block, and
 For the node whose identifier list is `{\tt{t1, n}}',
 chose `{\tt{n}}' at \ref{optimize_e054} of {\bf Assignment judge algorithm}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := a + b
@@ -853,7 +853,7 @@ f:
 \begin{verbatim}
 int f(void){ int n = 2; return n + 3; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    n := 2
@@ -879,7 +879,7 @@ Function `{\tt{f}}' is consist of one basic block, and
 For the node whose identifier list is `{\tt{2, n}}',
 chose `{\tt{2}}' at \ref{optimize_e055} of {\bf Assignment judge algorithm}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := 2 + 3
@@ -896,7 +896,7 @@ no more discussion.
 \begin{verbatim}
 int n; void g(void); void f(void){ n = 2; g(); ++n; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    n := 2
@@ -931,7 +931,7 @@ at \ref{optimize_e055} of {\bf Assignment judge algorithm}.
 {\tt{n := 2}} is generated, but for `{\tt{t0}}', 
 assignment isn't generated. 
 After appling algorithms of this section,
-This {\em dag} is converted to like bellow.
+This {\em dag} is converted to like below.
 \begin{verbatim}
    n := 2
    call g
@@ -943,7 +943,7 @@ This {\em dag} is converted to like bellow.
 \begin{verbatim}
 int n; void f(int* p){ n = 2; *p = 3; ++n; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    n := 2
@@ -985,7 +985,7 @@ at \ref{optimize_e055} of {\bf Assignment judge algorithm}.
 For `{\tt{t0}}', 
 assignment isn't generated. 
 After appling algorithms of this section,
-this dag is converted to like bellow.
+this dag is converted to like below.
 \begin{verbatim}
    n := 2
   *p := 3
@@ -999,7 +999,7 @@ this dag is converted to like bellow.
 int f(int a, int b)
 { int c = a, d = b; return (a + b) + (c + d); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := a
@@ -1035,7 +1035,7 @@ For the node whose identifier list is `{\tt{t2, t3}}',
 chose `{\tt{t2}}' at \ref{optimize_e054}
 of {\bf Assignment judge algorithm}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t2 := a + b
@@ -1051,7 +1051,7 @@ f:
 int f(int a, int b, int c, int d, int e)
 { return (a+b+(a+b-c)*(d+e))*((a+b-c)*(d+e)-e); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := a + b
@@ -1096,7 +1096,7 @@ For the node whose identifier list is `{\tt{t4, t9}}',
 chose `{\tt{t3}}' at \ref{optimize_e054}
 of {\bf Assignment judge algorithm}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := a + b
@@ -1117,7 +1117,7 @@ f:
 int x, y;
 void f(int b){ int a = b + x; b = a - y; x = b + x; y = a - y; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := b + x
@@ -1151,7 +1151,7 @@ chose `{\tt{y}}' at \ref{optimize_e054} of {\bf Assignment judge algorithm}.
 For the node whose identifier list is `{\tt{t2, y}}',
 chose `{\tt{y}}' at \ref{optimize_e054} of {\bf Assignment judge algorithm}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := b + x
@@ -1167,7 +1167,7 @@ f:
 int x, y;
 void f(int a, int b, int c){ x = a + b; a = a - c; b = b + c; y = a + b; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := a + b
@@ -1203,7 +1203,7 @@ chose `{\tt{t2}}' at \ref{optimize_e054} of {\bf Assignment judge algorithm}.
 For the node whose identifier list is `{\tt{t3, y}}',
 chose `{\tt{y}}' at \ref{optimize_e054} of {\bf Assignment judge algorithm}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    x := a + b
@@ -1218,7 +1218,7 @@ f:
 \begin{verbatim}
 int a, b, c, d; void f(void){ (a = b) + (c = d); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := b
@@ -1255,7 +1255,7 @@ For the node whose identifier list is `{\tt{t2}}',
 at \ref{optimize_e056} of {\bf Code generation algorithm from {\em dag}}
 because `{\tt{t2}}' is not alive in an exit of this basic block.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   a := b
@@ -1267,7 +1267,7 @@ f:
 \begin{verbatim}
 int g(void); void f(void){ g(); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := call g
@@ -1285,7 +1285,7 @@ Because `{\tt{t0}}' is not alive in an exit of this basic block,
 int g(int);
 void f(void){ int n = 2; int* p = &n; *p = 1; g(*p); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    n := 2
@@ -1327,7 +1327,7 @@ chose `{\tt{p}}' at \ref{optimize_e054} of {\bf Assignment judge
  `{\tt{t1}}' is not alive in an exit of this basic block,
 assignment is not generated.
 After appling algorithms of this section,
-this {\em dag} is converted to like bellow.
+this {\em dag} is converted to like below.
 \begin{verbatim}
   n := 2
   p := &n
@@ -1347,7 +1347,7 @@ But in this section, no more discussion for the best codes.
 \begin{verbatim}
 int f(void){ int n = 2; int* p = &n; *p = 1; return *p; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    n := 2
@@ -1388,7 +1388,7 @@ chose `{\tt{p}}' at \ref{optimize_e054} of {\bf Assignment judge
 `{\tt{t1}}' is not alive in an exit of this basic block,
 so assignment is not genearted.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
   n := 2
   p := &n
@@ -1407,7 +1407,7 @@ But in this section, no more discussion for the best codes.
 \begin{verbatim}
 int g(int); void f(void){ int n = 2; int* p = &n; g(*p); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    n := 2
@@ -1441,7 +1441,7 @@ of {\bf Assignment judge algorithm}. And return `{\tt{n}}'
 For the node whose identifier list is `{\tt{t0, p, t1}}',
 chose `{\tt{t0}}' at \ref{optimize_e054} of {\bf Assignment judge algorithm}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    n := 2
@@ -1464,7 +1464,7 @@ But in this section, no more discussion for the best codes.
 \begin{verbatim}
 void g(int, int); void f(int x){ g(x+1,x+2); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := x + 1
@@ -1499,7 +1499,7 @@ which is or are referenced by {\tt{call}}, just before generating
 \begin{verbatim}
 void f(int* p){ --*p; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := p
@@ -1528,7 +1528,7 @@ chose `{\tt{p}}' at \ref{optimize_e055} of {\bf Assignment judge
 `{\tt{t0}}' is not alive in an exit of this basic block, so
 assignment is not generated.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t1 := *p
@@ -1543,7 +1543,7 @@ f:
 void g(double, int, int);
 void f(double d){ int a = (int)d; int b = a; g(d,a,b); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := (int)d
@@ -1584,7 +1584,7 @@ chose `{\tt{t0}}' at \ref{optimize_e054} of {\bf Assignment judge
 `{\tt{a, t1, b, t3, t4}}' are not alive in an exit of this basic block, so
 assignments are not generated.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := (int)d
@@ -1600,7 +1600,7 @@ f:
 \begin{verbatim}
 int n; int g(int); void f(void){ n = 2; n = g(3); ++n; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    n := 2
@@ -1637,7 +1637,7 @@ chose `{\tt{2}}' at \ref{optimize_e054} of {\bf Assignment judge
 `{\tt{t0}}' is not alive in an exit of this basic block, so
 assignment is not generated.
 The upper {\em dag} of the figure \ref{optimize_e030} 
-is converted to like bellow.
+is converted to like below.
 \begin{verbatim}
    n := 2
   pamar 3
@@ -1653,11 +1653,11 @@ For the node whose identifier list is `{\tt{n, t2}}',
 `{\tt{t2}}' is not alive in an exit of this basic block, 
 so assignment is not generated.
 The lower {\em dag} of the figure \ref{optimize_e030} 
-is converted to like bellow.
+is converted to like below.
 \begin{verbatim}
    n := t1 + 1
 \end{verbatim}
-Finally, 3 address codes becomes like bellow.
+Finally, 3 address codes becomes like below.
 \begin{verbatim}
 f:
    n := 2
@@ -1672,7 +1672,7 @@ f:
 \begin{verbatim}
 void g(char*); void f(void){ char s[] = "abc"; g(s); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
     t0 := &"abc"
@@ -1709,7 +1709,7 @@ and we can easyly know that they cannot be omitted.
 At \ref{optimize_e064} of {\bf Code generation algorithm from {\em dag}},
 {\tt{x[y] := z}} is treated specially for such a reason.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   s[0] := 'a'
@@ -1727,7 +1727,7 @@ f:
 \begin{verbatim}
 void g(int); void f(void){ int n = 1; n = 2; g(n); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    n := 1
@@ -1751,7 +1751,7 @@ Figure \ref{optimize_e034} shows {\em dag} for these 3 address codes.
 \end{center}
 \end{figure}
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   param 2
@@ -1764,7 +1764,7 @@ f:
 \begin{verbatim}
 void g(int*, int*); void f(void){ int i[2]; g(&i[0],&i[1]); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := &i
@@ -1788,7 +1788,7 @@ Figure \ref{optimize_e038} shows {\em dag} for these 3 address codes.
 \end{center}
 \end{figure}
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := &i
@@ -1804,7 +1804,7 @@ f:
 \begin{verbatim}
 int n; void g(int); void f(void){ g(n++); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := n
@@ -1832,7 +1832,7 @@ of {\bf Assignment judge algorithm (Special case 1)}
 because {\tt{node[n]}} is not equal to this node and
 {\tt{node[t0]}} is equal to this node.
 As a result, {\tt{t0 := n}} is generated.
-Finally, 3 address codes become like bellow.
+Finally, 3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := n
@@ -1849,7 +1849,7 @@ f:
 struct S { unsigned int a : 1; unsigned int b : 2; };
 extern struct S s; unsigned int f(void){ return s.a + s.b; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := s[0]
@@ -1876,7 +1876,7 @@ Figure \ref{optimize_e069} shows {\em dag} for these 3 address codes.
 Similary so far, frontend can detect common expression {\tt{s[0]}}
 by applying {\bf Code generation algorithm from {\em dag}}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := s[0]
@@ -1893,7 +1893,7 @@ f:
 \begin{verbatim}
 int f(void){ static int s; return s++; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := s
@@ -1918,7 +1918,7 @@ is in case of {\bf Assignment judge algorithm (Special case 1) },
 so, {\tt{t0 := s}} is generated and the result of this node
 is `{\tt{t0}}' not `{\tt{s}}'.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := s
@@ -1934,7 +1934,7 @@ f:
 struct S { int m; int n; }; void g(struct S);
 void f(void){ struct S x, y = { 1, 2 }; x = y; g(x); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   y[0] := 1
@@ -1967,7 +1967,7 @@ before generating {\tt{y[4] := 2}},
 {\tt{y[0] := 1}} is generated at \ref{optimize_e108} of
 {\bf Code generation algorithm from {\em dag}}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   y[0] := 1
@@ -1985,7 +1985,7 @@ void g(int, int*, int*);
 void f(void)
 { int a = 0; int b = 1; int c = 2; g(a,&b,&c); ++a; g(a,&b,&c); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   a := 0
@@ -2023,7 +2023,7 @@ Figure \ref{optimize_e078} shows {\em dag} for these 3 address codes.
 \end{figure}
 Similary so far,
 after appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   a := 0
@@ -2052,7 +2052,7 @@ f:
 void g(void); struct S { int a; }; void h(struct S);
 void f(struct S y){ struct S x = { 1 }; g(); x = y; h(x); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   x[0] := 1
@@ -2087,7 +2087,7 @@ For the node whose identifier list is `{\tt{y, t0, x, t1}}',
 chose `{\tt{y}}' at \ref{optimize_e055} of {\bf Assignment judge
 algorithm}, and no assignment is generated for `{\tt{t0, x, t1}}'.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   call g
@@ -2103,7 +2103,7 @@ f:
 struct S { int a; }; void g(struct S);
 void f(struct S y){ struct S x = { 1 }; g(x); x = y; g(x); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   x[0] := 1
@@ -2135,7 +2135,7 @@ chose `{\tt{y}}' and no assignment is generated for
 {\tt{t1, x, t2}} becase they are not alive in an exit
 of this basic block.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   x[0] := 1
@@ -2151,7 +2151,7 @@ f:
 \begin{verbatim}
 void g(int); int x[3][5]; void f(void){ g(x[2][3]); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := &x
@@ -2177,7 +2177,7 @@ Function `{\tt{f}}' is consist of one basic block,
 and `{\tt{t0, t1, t2}}' is not alive in an exit of this basic block.
 Similary so far, 
 after appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := &x
@@ -2197,7 +2197,7 @@ applying {\bf Creation {\em dag} of basic block algorithm} an
 extern int a[];
 void f(int i, int j){ int x = a[i]; a[i] = a[j]; a[j] =	x; }
 \end{verbatim}
-Assume that sizeof(int) = 4, 3 address codes become like bellow.
+Assume that sizeof(int) = 4, 3 address codes become like below.
 \begin{verbatim}
 f:
     t0 := i << 2
@@ -2227,7 +2227,7 @@ Figure \ref{optimize_e076} shows {\em dag} for these 3 address codes.
 Taking care that the element of {\tt{dag::all}}
 is evaluated in order at
 {\bf Code generation algorithm from {\em dag}},
-3 address code become like bellow.
+3 address code become like below.
 \begin{verbatim}
 f:
     t0 := i << 2
@@ -2244,7 +2244,7 @@ f:
 \begin{verbatim}
 void g(int); void f(void){ int a; int* p = &a; a = 3; g(*p); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := &a
@@ -2275,7 +2275,7 @@ For the node whose identifier list is `{\tt{3, a, t1}}',
 chose `{\tt{3}}' and {\tt{a := 3}} is generated in 
 \ref{optimize_e110} becase address of `{\tt{a}}' is referenced.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := &a
@@ -2291,7 +2291,7 @@ f:
 \begin{verbatim}
 void g(int**); void f(void){ int n = 1; int* p = &n; g(&p); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   n := 1
@@ -2324,7 +2324,7 @@ the node whose identifier list is `{\tt{t0, p}}',
 chose `{\tt{p}}' and {\tt{p := t0}} is not generated
 becase this node is not leaf.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   n := 1
@@ -2343,7 +2343,7 @@ void g(double);
 void f(int n, int j){ double a[n]; g(1.0); a[j] = 2.0; g(a[j]); }
 \end{verbatim}
 Assume that 
-sizeof(double) = 8, 3 address codes become like bellow.
+sizeof(double) = 8, 3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := n
@@ -2382,7 +2382,7 @@ the node whose identifier list is {\tt{2.0, t3}} is found
 in \ref{optimize_e109} of {\bf Creation {\em dag} of basic block
  algorithm}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t1 := n << 3
@@ -2404,7 +2404,7 @@ f:
 float* g(int); struct S { int n; float* v; };
 struct S f(int n){ struct S s; s.n = n; s.v = g(n); return s; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := n
@@ -2445,7 +2445,7 @@ is also generated at \ref{optimize_e108}
 of {\bf Code generation algorithm from {\em dag}}.
 
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   param n
@@ -2463,7 +2463,7 @@ f:
 struct S { int m, n; };
 struct S f(int x){ return x ? (struct S){1, 2} : (struct S){7, 8}; }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   if x == 0 goto label0
@@ -2506,7 +2506,7 @@ this is in the case of {\bf Assignment judge algorithm (Special case 2)}.
 i.e. 3 address code {\tt{.comp0[0] := 1}} which is not generated
 but is remembered is converted to {\tt{t0[0] := 1}}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   if x == 0 goto label0
@@ -2528,7 +2528,7 @@ label1:
 void g(int*); void h(void);
 void f(void){ int a; int* p = &a; g(p); a = 3; h(); g(p); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := &a
@@ -2564,7 +2564,7 @@ not alive in an exit of this basic block,
 because address of `{\tt{a}}' is reference at the upper {\em dag} 
 in figure \ref{optimize_e095}.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
    p := &a
@@ -2585,7 +2585,7 @@ void g(int*);
 void f(void)
 { int a[3]; int* p = &a[0]; for ( int i = 0 ; i != 3 ; ++i ) a[i] = i; g(p); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := &a
@@ -2619,7 +2619,7 @@ Figure \ref{optimize_e100} shows {\em dag} for these 3 address codes.
 \end{figure}
 Similary so far, 
 after appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   p := &a
@@ -2644,7 +2644,7 @@ label1:
 void g(int);
 void f(int i, int j){ g((i++) > (j++) ? (i++) : (j++)); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := i
@@ -2692,7 +2692,7 @@ and the node whose identifier list is `{\tt{j, t4, t3}}' of 3rd basic block
 are the case of {\bf Assignment judge algorithm (Special case 1) }.
 
 And, `{\tt{i, j}}' are not alive in an exit of 2nd and 3rd basic block,
-this program is converted to like bellow.
+this program is converted to like below.
 \begin{verbatim}
 f:
   t0 := i
@@ -2718,7 +2718,7 @@ void g(int, int);
 void f(int x, int y)
 { int* ip = &x; int* iq = &y; iq = ip; g(x,y); *iq = 5; g(x,y); }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   t0 := &x
@@ -2765,7 +2765,7 @@ becase {\tt{node[iq]}} is not equal to this node.
 And because `{\tt{t1}}' is not alive in an exit of this basic
 block, {\tt{t1 := \&y}} is not generated.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   iq := &x
@@ -2797,7 +2797,7 @@ void f(char *fmt, ...)
   g(*p);
 }
 \end{verbatim}
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   ap := &fmt
@@ -2834,7 +2834,7 @@ chose `{\tt{fmt}}' because the parent of this node has
 in this basic block at {\bf Assignment judge algorithm}.
 And, {\tt{p := fmt}} is generated becase `{\tt{p}}' is used later.
 After appling algorithms of this section,
-3 address codes become like bellow.
+3 address codes become like below.
 \begin{verbatim}
 f:
   p := fmt

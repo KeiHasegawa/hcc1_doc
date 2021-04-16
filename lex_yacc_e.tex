@@ -62,7 +62,7 @@ class bin_expr : public expr {
 
 \begin{QandA}
 Generally, for grammer ``A $\rightarrow$ B $|$ C D'', define
-structure Sa, Sb, Sc like bellow
+structure Sa, Sb, Sc like below
 \begin{verbatim}
 struct Sb;
 struct Sc;
@@ -96,7 +96,7 @@ code immediately in the process of upper syntax analisis.
 
 Answer : It's OK. But in this case, you must move a 
 group of 3 address codes. For example, {\tt{for}} statement
-code generation is implemented like bellow if you generate
+code generation is implemented like below if you generate
 syntax tree in the process of upper syntax analisis.
 
 \begin{verbatim}
@@ -211,7 +211,7 @@ in some cases. If you use the grammer of bibliography \cite{ISO},
 expression. But not only variable and typedef name are in symbol table.
 Tag name of structure, union and enumeration are also in symbol table.
 So we'll let {\tt tag-name} be a terminal symbol and change the
-grammer of bibliography \cite{ISO} like bellow.
+grammer of bibliography \cite{ISO} like below.
 
 \begin{verbatim}
 struct-or-union-specifier :
@@ -232,7 +232,7 @@ In the rules of {\tt struct-or-union-specifier },
 1st and 2nd rule are the declaration of complete structure or union,
 3rd rurle is the declaration of incomplete structure or union,
 4th rule is the reference of already defined structure or union.
-In the bellow example, we'll know that compiler must look up
+In the below example, we'll know that compiler must look up
 symbol table only in necessary case.
 \begin{verbatim}
 typedef int T;  /* Not look up. `T' is identifier. */
@@ -320,7 +320,7 @@ typdef-name tag-name
 const volatile restrict
 typedef extern static register auto inline
 \end{verbatim}
-For these token, prepare global container like bellow.
+For these token, prepare global container like below.
 \begin{verbatim}
 vector<int> lexed_spec;
 \end{verbatim}
@@ -332,7 +332,7 @@ parameter-declaration
 \end{verbatim}
 is reduced.
 
-Bellow function tells us whether compiler should lookup
+Below function tells us whether compiler should lookup
 symbol table or not.
 \begin{verbatim}
 bool should_lookup()
@@ -349,7 +349,7 @@ bool should_lookup()
 
 bool enough(int n)
 {
-  If n is one of bellow, return true.
+  If n is one of below, return true.
   void char int float double short long signed unsigned
   typdef-name tag-name
 
@@ -389,7 +389,7 @@ void f(A a);        /* `f' : Not look up because void is in lexed_spec. */
 \label{lex_yacc_e006}
 Samely as \ref{lex_yacc_e002}, remember previous token.
 And samely as \ref{lex_yacc_e005}, remember {\tt{lexed\_spec}}.
-And more, remember bellow infomation.
+And more, remember below infomation.
 \begin{verbatim}
 struct spec {
   type* m_type; // remember type
@@ -401,7 +401,7 @@ Before clearing {\tt{lexed\_spec}},
 push {\tt{spec}} whihch is same with {\tt{lexed\_spec}}
 to {\tt{spec\_stack}}.
 And then push 0.
-Bellow example shows the timing of clear, push and pop.
+Below example shows the timing of clear, push and pop.
 
 \begin{verbatim}
 typedef short int A[3];
@@ -444,7 +444,7 @@ static void g(
 );
 \end{verbatim}
 
-Now, we can rewrite function {\tt{should\_lookup}} like bellow.
+Now, we can rewrite function {\tt{should\_lookup}} like below.
 \begin{verbatim}
 bool should_lookup()
 {
@@ -507,7 +507,7 @@ int f(int (*pf)(int));
 
 Above example shows that
 we cannot decide whether compiler should look up or not.
-But we decide like bellow.
+But we decide like below.
 If previous token is '(' and compiler analyzes
 in parameter scope, then look up the symbol. And
 if it is {\tt{typedef-name}}, its token is {\tt{typedef-name}}.
